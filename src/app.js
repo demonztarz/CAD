@@ -135,7 +135,8 @@
   function resize() {
     const r = ov.parentElement.getBoundingClientRect();
     DPR = window.devicePixelRatio || 1; W = Math.max(1, r.width); H = Math.max(1, r.height);
-    for (const c of [cv, ov]) { c.width = Math.round(W * DPR); c.height = Math.round(H * DPR); c.style.width = W + 'px'; c.style.height = H + 'px'; }
+    // CSS sizes the canvases to the viewport; only the backing store follows the device pixel ratio
+    for (const c of [cv, ov]) { c.width = Math.round(W * DPR); c.height = Math.round(H * DPR); }
     S.render();
   }
   new ResizeObserver(resize).observe(ov.parentElement);
