@@ -39,9 +39,17 @@ const root = path.join(__dirname, '..');
     assert.strictEqual(await win.evaluate(() => App.doc.entities.length), 4);
   });
   await step('trim with a mouse pick', async () => {
-    await submit('TRIM'); await click(50, 0); await submit('');
+    await submit('TRIM');
+    await win.waitForFunction(() => App.input && App.input.kind === 'entity');
+    // centre the pick point so window size and the floating command line cannot hide it
+    await win.evaluate(() => { App.view = { cx: 50, cy: 0, scale: 6 }; App.render(); });
+    await win.waitForTimeout(50);
+    await click(50, 0);
+    await win.waitForTimeout(100);
+    await submit('');
     const xs = await win.evaluate(() => App.doc.entities.filter((e) => e.type === 'line' && e.y1 === 0 && e.y2 === 0).map((e) => [e.x1, e.x2]));
-    assert.deepStrictEqual(xs.sort((a, b) => a[0] - b[0]), [[0, 40], [60, 100]]);
+    const ctx = await win.evaluate(() => ({ size: App.size(), view: App.view, hist: [...document.querySelectorAll('#cmd-history .hl')].slice(-5).map((d) => d.textContent) }));
+    assert.deepStrictEqual(xs.sort((a, b) => a[0] - b[0]), [[0, 40], [60, 100]], JSON.stringify(ctx));
   });
   await step('undo restores the trimmed line', async () => {
     await win.keyboard.press('Control+z'); await win.waitForTimeout(50);
