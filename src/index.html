@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; script-src 'self'">
+  <title>DraftForge</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header id="titlebar">
+    <button id="appbtn" title="Application menu">DF</button>
+    <div id="qat"></div>
+    <div id="title">DraftForge</div>
+    <div id="search"><input id="cmdsearch" placeholder="Type a keyword or phrase" spellcheck="false"></div>
+  </header>
+  <nav id="ribbon-tabs"></nav>
+  <section id="ribbon"></section>
+  <div id="filetabs">
+    <div class="ftab start" id="tab-start" title="Start">Start</div>
+    <div class="ftab active" id="tab-doc"><span id="ftab-name">Drawing1</span><span class="x" id="tab-close" title="Close">&times;</span></div>
+    <div class="ftab plus" id="tab-new" title="New drawing">+</div>
+  </div>
+  <main id="main">
+    <div id="viewport">
+      <canvas id="cv"></canvas>
+      <canvas id="ov"></canvas>
+      <div id="vp-label">[&minus;][Top][2D Wireframe]</div>
+      <div id="ucs" aria-hidden="true">
+        <svg width="70" height="70" viewBox="0 0 70 70">
+          <path d="M12 58 H58" stroke="#e05555" stroke-width="2.5"/><path d="M58 58 L50 54 L50 62 Z" fill="#e05555"/>
+          <path d="M12 58 V12" stroke="#55c46a" stroke-width="2.5"/><path d="M12 12 L8 20 L16 20 Z" fill="#55c46a"/>
+          <rect x="9" y="55" width="6" height="6" fill="none" stroke="#9aa5b4" stroke-width="1"/>
+          <text x="60" y="54" font-family="Arial" font-size="11" fill="#e05555">X</text>
+          <text x="17" y="16" font-family="Arial" font-size="11" fill="#55c46a">Y</text>
+        </svg>
+      </div>
+      <div id="dyn" class="hidden"><span id="dyn-prompt"></span><span id="dyn-fields"></span></div>
+      <div id="cmdline">
+        <div id="cmd-history"></div>
+        <div id="cmd-row">
+          <button id="cmd-x" title="Close (Ctrl+9)">&times;</button>
+          <span id="cmd-icon">&gt;_</span>
+          <span id="cmd-prompt"></span>
+          <input id="cmd-input" autocomplete="off" spellcheck="false">
+        </div>
+        <div id="autocomplete" class="hidden"></div>
+      </div>
+    </div>
+    <aside id="props" class="hidden">
+      <div class="pal-head"><span>PROPERTIES</span><button id="props-close" title="Close">&times;</button></div>
+      <div id="props-body"></div>
+    </aside>
+  </main>
+  <footer id="statusbar">
+    <div class="layouts"><div class="ltab active">Model</div></div>
+    <div id="coords">0.0000, 0.0000, 0.0000</div>
+    <div class="spacer"></div>
+    <div id="toggles"></div>
+  </footer>
+  <div id="menu-root"></div>
+  <div id="modal-root"></div>
+  <script src="geom.js"></script>
+  <script src="dwgconvert.js"></script>
+  <script src="dxf.js"></script>
+  <script src="app.js"></script>
+  <script src="commands.js"></script>
+  <script src="icons.js"></script>
+  <script src="ui.js"></script>
+</body>
+</html>

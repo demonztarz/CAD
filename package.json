@@ -1,0 +1,93 @@
+{
+  "name": "draftforge",
+  "productName": "DraftForge",
+  "version": "1.0.0",
+  "description": "DraftForge: a 2D CAD drafting application with a command-line workflow that opens DWG and DXF drawings.",
+  "main": "main.js",
+  "author": "DraftForge",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/geometry.test.js && node test/import.test.js",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win portable",
+    "dist:linux": "electron-builder --linux AppImage",
+    "dist:mac": "electron-builder --mac dmg",
+    "test:e2e": "node test/e2e.js"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3",
+    "playwright-core": "1.56.1"
+  },
+  "build": {
+    "appId": "app.draftforge.cad",
+    "productName": "DraftForge",
+    "artifactName": "DraftForge-${version}-${os}-${arch}.${ext}",
+    "files": [
+      "main.js",
+      "preload.js",
+      "dwgload.js",
+      "src/**/*",
+      "build/icon.png",
+      "LICENSE"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "fileAssociations": [
+      {
+        "ext": "dwg",
+        "name": "DWG Drawing",
+        "role": "Viewer"
+      },
+      {
+        "ext": "dxf",
+        "name": "DXF Drawing",
+        "role": "Editor"
+      },
+      {
+        "ext": "dfg",
+        "name": "DraftForge Drawing",
+        "role": "Editor"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.png"
+    },
+    "portable": {
+      "artifactName": "DraftForge-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "DraftForge-${version}-setup.exe",
+      "license": "LICENSE"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.graphics-design",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Graphics",
+      "icon": "build/icon.png"
+    },
+    "asarUnpack": [
+      "node_modules/@mlightcad/libredwg-web/wasm/**"
+    ]
+  },
+  "dependencies": {
+    "@mlightcad/libredwg-web": "0.7.11"
+  }
+}
