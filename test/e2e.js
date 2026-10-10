@@ -44,8 +44,17 @@ const root = path.join(__dirname, '..');
     // centre the pick point so window size and the floating command line cannot hide it
     await win.evaluate(() => { App.view = { cx: 50, cy: 0, scale: 6 }; App.render(); });
     await win.waitForTimeout(50);
+    const target = await toPage(50, 0);
+    const before = await win.evaluate(([x, y]) => {
+      const r = document.getElementById('ov').getBoundingClientRect();
+      const hit = App.pick(x - r.left, y - r.top);
+      const top = document.elementFromPoint(x, y);
+      return { rect: [r.left, r.top, r.width, r.height], dpr: devicePixelRatio, inner: [innerWidth, innerHeight], hit: hit && hit.type, top: top && (top.id || top.className || top.tagName) };
+    }, [target.x, target.y]);
     await click(50, 0);
     await win.waitForTimeout(100);
+    const afterMouse = await win.evaluate(() => ({ mouse: App.mouse, input: App.input && App.input.kind }));
+    console.log('trim click diagnostics', JSON.stringify({ target, before, afterMouse }));
     await submit('');
     const xs = await win.evaluate(() => App.doc.entities.filter((e) => e.type === 'line' && e.y1 === 0 && e.y2 === 0).map((e) => [e.x1, e.x2]));
     const ctx = await win.evaluate(() => ({ size: App.size(), view: App.view, hist: [...document.querySelectorAll('#cmd-history .hl')].slice(-5).map((d) => d.textContent) }));
