@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('desktop', {
   pathForFile: (file) => (webUtils && webUtils.getPathForFile ? webUtils.getPathForFile(file) : null),
   saveDialog: (defaultName, filters) => ipcRenderer.invoke('save-dialog', { defaultName, filters }),
   writeFile: (path, data, encoding) => ipcRenderer.invoke('write-file', { path, data, encoding }),
+  version: () => ipcRenderer.invoke('app-version'),
   plot: (opts) => ipcRenderer.invoke('plot', opts),
   confirmDiscard: () => ipcRenderer.invoke('confirm-discard'),
   setTitle: (t) => ipcRenderer.send('set-title', t),

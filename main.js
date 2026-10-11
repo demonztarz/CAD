@@ -156,6 +156,8 @@ ipcMain.handle('plot', async (_e, { svg, widthMm, heightMm, action, path: out })
   }
 });
 
+ipcMain.handle('app-version', () => app.getVersion());
+
 ipcMain.handle('confirm-discard', async () => {
   const r = await dialog.showMessageBox(win, {
     type: 'warning',

@@ -1,7 +1,7 @@
 {
   "name": "draftforge",
   "productName": "DraftForge",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "DraftForge: a 2D CAD drafting application with a command-line workflow that opens DWG and DXF drawings.",
   "main": "main.js",
   "author": "DraftForge",

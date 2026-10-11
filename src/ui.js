@@ -187,7 +187,7 @@
   for (const [icon, tip, cmd] of QAT) $('qat').append(h('button', { title: tip, html: I(icon, 18), onclick: () => run(cmd) }));
   function updateTitle() {
     const n = S.file.name + (S.file.dirty ? '*' : '');
-    $('title').innerHTML = `DraftForge &nbsp; <b>${esc(n)}</b>`;
+    $('title').innerHTML = `DraftForge ${esc(S.version || '')} &nbsp; <b>${esc(n)}</b>`;
     $('ftab-name').textContent = n;
     document.title = `${n} - DraftForge`;
     if (desk) desk.setTitle(`DraftForge - ${n}`);
@@ -1031,7 +1031,10 @@
   S.zoomExtents();
   S.view = { cx: 100, cy: 60, scale: Math.max(1, Math.min(S.size().W / 260, S.size().H / 160)) };
   S.render();
-  S.msg('DraftForge 1.0  -  type a command or click a tool. F1 shows every command and alias.');
+  S.version = '';
+  const hello = () => S.msg(`DraftForge ${S.version}  -  type a command or click a tool. F1 shows every command and alias.`);
+  if (desk && desk.version) desk.version().then((v) => { S.version = v; updateTitle(); hello(); }).catch(hello);
+  else hello();
   S.msg('Tip: L = LINE, C = CIRCLE, TR = TRIM, M = MOVE. Enter or Space repeats the last command.');
   S.inputEl.focus();
   window.addEventListener('beforeunload', (e) => { if (!desk && S.file.dirty) { e.preventDefault(); e.returnValue = ''; } });
