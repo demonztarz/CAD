@@ -72,6 +72,38 @@ const root = path.join(__dirname, '..');
     fs.unlinkSync(out);
     assert.strictEqual(back.entities.length, 4);
   });
+  await step('isometric drafting: isocircle and angle override', async () => {
+    await submit('ISODRAFT', 'Top', 'ELLIPSE', 'I', '200,0', '10');
+    const el = await win.evaluate(() => App.E[App.E.length - 1]);
+    assert.strictEqual(el.type, 'ellipse');
+    assert.ok(Math.abs(el.ratio - Math.tan(Math.PI / 6)) < 1e-9, `isocircle ratio ${el.ratio}`);
+    await submit('ISODRAFT', 'Off', 'LINE', '0,50', '<30', '10', '');
+    const ln = await win.evaluate(() => App.E[App.E.length - 1]);
+    assert.ok(Math.abs(ln.x2 - 10 * Math.cos(Math.PI / 6)) < 1e-9 && Math.abs(ln.y2 - 55) < 1e-9, JSON.stringify(ln));
+  });
+  await step('layout with title block exports an A3 vector PDF', async () => {
+    await win.evaluate(() => App.setSpace('Layout1'));
+    const vp = await win.evaluate(() => App.E.find((e) => e.type === 'viewport'));
+    assert.ok(vp && vp.scale > 0, 'default viewport');
+    await submit('TITLEBLOCK');
+    await win.waitForSelector('.modal-bg .btn.primary');
+    await win.click('.modal-bg .btn.primary');
+    assert.ok(await win.evaluate(() => App.E.some((e) => e.type === 'insert' && e.attribs.length === 10)));
+    const out = path.join(os.tmpdir(), `draftforge-e2e-${process.pid}.pdf`);
+    const r = await win.evaluate((p) => {
+      const sheet = App.buildSheet({ layout: App.layoutObj(), style: 'monochrome', lineweights: true });
+      return window.desktop.plot({ svg: App.sheetSvg(sheet, false), widthMm: sheet.pw, heightMm: sheet.ph, action: 'pdf', path: p });
+    }, out);
+    assert.ok(r.ok, JSON.stringify(r));
+    const pdf = fs.readFileSync(out, 'latin1');
+    if (process.env.KEEP_PDF) fs.copyFileSync(out, process.env.KEEP_PDF);
+    fs.unlinkSync(out);
+    assert.ok(pdf.startsWith('%PDF-'), 'not a PDF');
+    const box = pdf.match(/\/MediaBox\s*\[\s*0 0 ([\d.]+) ([\d.]+)/);
+    assert.ok(box, 'no MediaBox');
+    // A3 landscape is 420 x 297 mm = 1190.55 x 841.89 pt
+    assert.ok(Math.abs(+box[1] - 1190.55) < 1.5 && Math.abs(+box[2] - 841.89) < 1.5, `MediaBox ${box[1]} x ${box[2]}`);
+  });
   assert.deepStrictEqual(errors, []);
   await app.evaluate(({ app: a }) => a.exit(0));
   console.log('e2e passed');

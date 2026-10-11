@@ -26,9 +26,13 @@ code-signed. Choose **More info → Run anyway**.
 - **Annotation:** TEXT, MTEXT, DIMLINEAR, DIMALIGNED, DIMRADIUS, DIMDIAMETER, DIMANGULAR
 - **Blocks:** BLOCK, INSERT, block references with attributes, nested blocks
 - **Precision input:** absolute `x,y`, relative `@dx,dy`, polar `@dist<angle`, direct distance entry, object snaps (endpoint, midpoint, center, quadrant, intersection, perpendicular, tangent, nearest, node, insertion), polar tracking, ortho, grid snap
+- **Layouts and plotting:** Model/Layout tabs, paper sizes A4–A0, Letter, Tabloid and ANSI/ARCH, viewports at standard scales (MVIEW, VPSCALE, VPFIT, VPPAN), PLOT to a printer or a vector **PDF** with preview, monochrome/grayscale/colour plot styles and lineweights
+- **Title blocks:** TITLEBLOCK inserts an ISO-style frame and title block sized to the paper, with fillable fields (title, drawing no., scale, date, drawn/checked, sheet, revision, project, company); double-click to edit. Build your own with ATTDEF + BLOCK
+- **Isometric drafting:** ISODRAFT (status-bar cube icon) gives an isometric grid, snap and crosshair; F5 / Ctrl+E cycles left/top/right planes; ortho (F8) locks to the plane's axes; ELLIPSE → Isocircle
+- **Angle locks:** type `<30` at any point prompt to lock the next point to 30°; SNAPANG rotates the ortho lock and crosshair
 - **Organisation:** layers (on/off, freeze, lock, colour, linetype, lineweight), indexed and true colours, linetypes, lineweights, Properties palette
 - **Interface:** ribbon, command line with autocomplete and history, dynamic input tooltip, window/crossing selection, right-click menus, undo/redo
-- **Files:** open DWG (R14 through 2018+), DXF and DraftForge `.dfg`; save `.dfg` or DXF R12; export SVG and PNG
+- **Files:** open DWG (R14 through 2018+), DXF and DraftForge `.dfg`; save `.dfg` or DXF R12; export SVG, PNG and PDF
 
 Press **F1** in the app for the full command list with aliases. Common keys: F3 object snap,
 F7 grid, F8 ortho, F9 snap, F10 polar, Ctrl+1 properties, Enter/Space repeat last command,
@@ -65,6 +69,7 @@ Source layout:
 | `src/app.js` | Rendering, snapping, selection, grips, undo, command prompts |
 | `src/commands.js` | All drawing and editing commands |
 | `src/ui.js` | Ribbon, command line, palettes, dialogs, file handling |
+| `src/layout.js` | Layouts, viewports, title blocks, attributes, plotting and PDF |
 
 ## License
 

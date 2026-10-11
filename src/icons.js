@@ -73,6 +73,16 @@
     osnap: s('M7 7 H17 V17 H7 Z', W, 1.4) + s('M12 2 V7 M12 17 V22 M2 12 H7 M17 12 H22', W, 1),
     lwt: s('M4 6 H20', W, 1) + s('M4 12 H20', W, 2.2) + s('M4 18 H20', W, 3.4),
     dyn: s('M4 7 H16 V13 H4 Z', W, 1.2) + s('M14 15 L18 21 L19.5 17.5 L22 16 Z', W, 1.1),
+    layoutnew: s('M4 5 H16 V19 H4 Z', W) + s('M7 8 H13 V13 H7 Z', B, 1.2) + s('M18 14 V22 M14 18 H22', Gn, 1.8),
+    pagesetup: s('M5 3 H15 L19 7 V21 H5 Z', W) + s('M8 10 H16 M8 13 H16 M8 16 H13', B, 1.2) + s('M15 3 V7 H19', W, 1),
+    viewport: s('M3 5 H21 V19 H3 Z', W) + s('M6 8 H18 V16 H6 Z', B, 1.3) + s('M8 14 L11 10 L13 12 L16 9', Y, 1.3),
+    vpscale: s('M3 5 H21 V19 H3 Z', W, 1.2) + txt(5.5, 15.5, '1:50', Y, 7),
+    titleblock: s('M3 4 H21 V20 H3 Z', W, 1.2) + s('M11 13 H21 M11 13 V20 M11 16.5 H21 M16 16.5 V20', B, 1.2),
+    attdef: s('M4 6 H20 V18 H4 Z', W, 1.1) + txt(6, 15, 'TAG', Y, 7),
+    attedit: s('M4 6 H20 V18 H4 Z', W, 1.1) + s('M7 12 H13', B, 1.4) + s('M14 17 L20 11 L22 13 L16 19 H14 Z', O, 1.2),
+    pdf: s('M6 3 H15 L19 7 V21 H6 Z', W) + `<rect x="3" y="11" width="15" height="7" rx="1" fill="#e5484d"/>` + txt(4.2, 16.8, 'PDF', '#fff', 5.6),
+    preview: s('M3 12 C6 6, 18 6, 21 12 C18 18, 6 18, 3 12 Z', W, 1.3) + '<circle cx="12" cy="12" r="3" fill="#7fb6ff"/>',
+    iso: s('M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z', W, 1.2) + s('M12 12 L20 7.5 M12 12 L4 7.5 M12 12 V21', B, 1.2),
     model: s('M3 18 L12 22 L21 18 L12 14 Z M3 18 V8 L12 4 L21 8 V18 M12 14 V4', W, 1.1),
   };
   window.Icons = {

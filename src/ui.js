@@ -15,7 +15,7 @@
       else if (k === 'cls') el.className = v;
       else el.setAttribute(k, v === true ? '' : v);
     }
-    for (const c of kids.flat()) if (c != null) el.append(c.nodeType ? c : document.createTextNode(String(c)));
+    for (const c of kids.flat(Infinity)) if (c != null) el.append(c.nodeType ? c : document.createTextNode(String(c)));
     return el;
   };
   const run = (cmd) => (typeof cmd === 'function' ? cmd() : S.runCommand(cmd));
@@ -95,12 +95,14 @@
     }
     return null;
   }
+  S.ribbon = RIBBON;
   let activeTab = 'Home';
   function buildRibbon() {
     const tabs = $('ribbon-tabs'), rib = $('ribbon');
     tabs.innerHTML = ''; rib.innerHTML = '';
     for (const k of Object.keys(RIBBON).concat()) for (const key of Object.keys(ribbonCtls)) void key;
     for (const k of Object.keys(ribbonCtls)) ribbonCtls[k] = [];
+    if (!RIBBON[activeTab]) activeTab = 'Home';
     for (const name of Object.keys(RIBBON)) {
       tabs.append(h('div', { cls: 'rt' + (name === activeTab ? ' active' : ''), onclick: () => { activeTab = name; buildRibbon(); } }, name));
     }
@@ -181,7 +183,7 @@
   }
 
   // ======================================================== title bar
-  const QAT = [['newf', 'New (Ctrl+N)', 'NEW'], ['open', 'Open (Ctrl+O)', 'OPEN'], ['save', 'Save (Ctrl+S)', 'QSAVE'], ['saveas', 'Save As (Ctrl+Shift+S)', 'SAVEAS'], ['undo', 'Undo (Ctrl+Z)', 'U'], ['redo', 'Redo (Ctrl+Y)', 'REDO'], ['plot', 'Export PNG', 'PNGOUT']];
+  const QAT = [['newf', 'New (Ctrl+N)', 'NEW'], ['open', 'Open (Ctrl+O)', 'OPEN'], ['save', 'Save (Ctrl+S)', 'QSAVE'], ['saveas', 'Save As (Ctrl+Shift+S)', 'SAVEAS'], ['undo', 'Undo (Ctrl+Z)', 'U'], ['redo', 'Redo (Ctrl+Y)', 'REDO'], ['plot', 'Plot / PDF (Ctrl+P)', 'PLOT']];
   for (const [icon, tip, cmd] of QAT) $('qat').append(h('button', { title: tip, html: I(icon, 18), onclick: () => run(cmd) }));
   function updateTitle() {
     const n = S.file.name + (S.file.dirty ? '*' : '');
@@ -217,6 +219,8 @@
   // ======================================================== menus
   let openMenu = null;
   function closeMenu() { if (openMenu) { openMenu.remove(); openMenu = null; } }
+  S.buildRibbon = () => buildRibbon();
+  S.showMenu = (...a) => showMenu(...a);
   function showMenu(x, y, items, extra) {
     closeMenu();
     const m = h('div', { cls: 'menu ' + (extra || '') });
@@ -343,13 +347,18 @@
   // ======================================================== status bar
   const TOGGLES = [
     ['grid', 'gridicon', 'Display drawing grid (F7)'], ['snap', 'snapgrid', 'Snap mode (F9)'], ['ortho', 'ortho', 'Ortho mode (F8)'],
-    ['polar', 'polar', 'Polar tracking (F10)'], ['osnap', 'osnap', 'Object snap (F3) - right-click for settings'], ['lwt', 'lwt', 'Show lineweights'], ['dyn', 'dyn', 'Dynamic input (F12)'],
+    ['polar', 'polar', 'Polar tracking (F10)'], ['iso', 'iso', 'Isometric drafting - F5 cycles isoplane'], ['osnap', 'osnap', 'Object snap (F3) - right-click for settings'], ['lwt', 'lwt', 'Show lineweights'], ['dyn', 'dyn', 'Dynamic input (F12)'],
   ];
   function buildStatus() {
     const t = $('toggles'); t.innerHTML = '';
-    t.append(h('button', { cls: 'tg text on', title: 'Model space' }, 'MODEL'), h('div', { cls: 'tg-sep' }));
+    t.append(h('button', { cls: 'tg text on', title: 'Switch between model space and the last layout', onclick: () => {
+      if (S.space) S.setSpace(null);
+      else { const l = (S.doc.layouts || [])[0]; if (l) S.setSpace(S.lastLayout && S.doc.layouts.some((x) => x.name === S.lastLayout) ? S.lastLayout : l.name); }
+    } }, S.space ? 'PAPER' : 'MODEL'), h('div', { cls: 'tg-sep' }));
     for (const [key, icon, tip] of TOGGLES) {
       const b = h('button', { cls: 'tg' + (S.st[key] ? ' on' : ''), title: tip, html: I(icon, 18), onclick: () => { S.st[key] = !S.st[key]; S.saveSettings(); buildStatus(); S.render(); S.msg(`<${tip.split(' (')[0]} ${S.st[key] ? 'on' : 'off'}>`); } });
+      if (key === 'iso') b.title = `Isometric drafting (${S.st.iso ? 'isoplane ' + (S.st.isoplane || 'left') : 'off'}) - F5 cycles isoplane, right-click to choose`;
+      if (key === 'iso') b.addEventListener('contextmenu', (e) => { e.preventDefault(); showMenu(e.clientX, e.clientY - 120, ['left', 'top', 'right'].map((pl) => ({ label: `Isoplane ${pl[0].toUpperCase() + pl.slice(1)}`, checked: S.st.iso && S.st.isoplane === pl, act: () => { S.st.iso = true; S.st.isoplane = pl; S.saveSettings(); buildStatus(); S.render(); } })).concat(['-', { label: 'Isometric off', act: () => { S.st.iso = false; S.saveSettings(); buildStatus(); S.render(); } }])); });
       if (key === 'osnap' || key === 'polar' || key === 'snap' || key === 'grid') b.addEventListener('contextmenu', (e) => { e.preventDefault(); S.openOsnapDialog(); });
       t.append(b);
     }
@@ -364,15 +373,16 @@
     const t = ev.target;
     const inField = t && t !== input && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA');
     const k = ev.key, ctrl = ev.ctrlKey || ev.metaKey;
-    const fk = { F1: () => S.showHelp(), F2: () => $('cmdline').classList.toggle('expanded'), F3: () => toggleKey('osnap', 'Osnap'), F7: () => toggleKey('grid', 'Grid'), F8: () => toggleKey('ortho', 'Ortho'), F9: () => toggleKey('snap', 'Snap'), F10: () => toggleKey('polar', 'Polar'), F12: () => toggleKey('dyn', 'Dynamic input') };
+    const fk = { F1: () => S.showHelp(), F2: () => $('cmdline').classList.toggle('expanded'), F3: () => toggleKey('osnap', 'Osnap'), F5: () => S.cycleIsoplane(), F7: () => toggleKey('grid', 'Grid'), F8: () => toggleKey('ortho', 'Ortho'), F9: () => toggleKey('snap', 'Snap'), F10: () => toggleKey('polar', 'Polar'), F12: () => toggleKey('dyn', 'Dynamic input') };
     if (fk[k]) { ev.preventDefault(); fk[k](); return; }
     if (k === 'Escape') { ev.preventDefault(); closeMenu(); input.value = ''; ac.classList.add('hidden'); S.escape(); if (inField) input.focus(); updateDyn(); return; }
     if (inField) return;
     if (ctrl) {
-      const map = { z: 'U', y: 'REDO', c: 'COPYCLIP', x: 'CUTCLIP', v: 'PASTECLIP', a: 'SELECTALL', o: 'OPEN', n: 'NEW', p: 'PNGOUT' };
+      const map = { z: 'U', y: 'REDO', c: 'COPYCLIP', x: 'CUTCLIP', v: 'PASTECLIP', a: 'SELECTALL', o: 'OPEN', n: 'NEW', p: 'PLOT' };
       const key = k.toLowerCase();
       if (key === 's') { ev.preventDefault(); run(ev.shiftKey ? 'SAVEAS' : 'QSAVE'); return; }
       if (key === '1') { ev.preventDefault(); togglePalette(); return; }
+      if (key === 'e') { ev.preventDefault(); S.cycleIsoplane(); return; }
       if (key === '9') { ev.preventDefault(); $('cmdline').classList.toggle('hidden'); return; }
       if (map[key] && !(t === input && input.value && (key === 'c' || key === 'v' || key === 'x' || key === 'a'))) {
         ev.preventDefault();
@@ -398,7 +408,7 @@
   }
   S.on('properties', (on) => togglePalette(on));
   $('props-close').addEventListener('click', () => togglePalette(false));
-  const TYPE_NAMES = { line: 'Line', circle: 'Circle', arc: 'Arc', pline: 'Polyline', ellipse: 'Ellipse', spline: 'Spline', text: 'Text', point: 'Point', solid: 'Solid', hatch: 'Hatch', dim: 'Dimension', insert: 'Block Reference', xline: 'Construction Line' };
+  const TYPE_NAMES = { line: 'Line', circle: 'Circle', arc: 'Arc', pline: 'Polyline', ellipse: 'Ellipse', spline: 'Spline', text: 'Text', point: 'Point', solid: 'Solid', hatch: 'Hatch', dim: 'Dimension', insert: 'Block Reference', xline: 'Construction Line', viewport: 'Viewport' };
   function buildPalette() {
     if (!paletteOn) return;
     const body = $('props-body');
@@ -487,7 +497,7 @@
         return row(label, inp);
       };
       body.append(group('Drawing', [
-        row('Objects', ro(S.doc.entities.length)), row('Layers', ro(S.doc.layers.length)), row('Blocks', ro(Object.keys(S.doc.blocks).length)),
+        row('Objects', ro(S.E.length)), row('Layers', ro(S.doc.layers.length)), row('Blocks', ro(Object.keys(S.doc.blocks).length)),
         setting('Linetype scale', 'ltscale'), setting('Text height', 'textHeight'), setting('Dim text height', 'dimHeight'),
       ]));
       return;
@@ -529,7 +539,21 @@
           rows.push(num('Position X', (e) => e.x, (e, v) => ({ ...e, x: v })), num('Position Y', (e) => e.y, (e, v) => ({ ...e, y: v })),
             num('Scale X', (e) => e.sx ?? 1, (e, v) => (v ? { ...e, sx: v } : e)), num('Scale Y', (e) => e.sy ?? 1, (e, v) => (v ? { ...e, sy: v } : e)),
             num('Rotation', (e) => deg(e.rot || 0), (e, v) => ({ ...e, rot: G.rad(v) })));
+          if (one && one.attribs && one.attribs.length) {
+            body.append(group('Geometry', rows.splice(0)));
+            body.append(group('Attributes', one.attribs.map((a, i) => str(a.attr || `#${i + 1}`, (e) => (e.attribs[i] || {}).text || '', (e, v) => ({ ...e, attribs: e.attribs.map((x, j) => (j === i ? { ...x, text: v } : x)) })))));
+          }
           break;
+        case 'viewport': {
+          const scales = ['1:1', '1:2', '1:5', '1:10', '1:20', '1:25', '1:50', '1:100', '1:200', '1:250', '1:500', '1:1000', '2:1', '5:1', '10:1'];
+          const opts = scales.map((x) => [String(S.parseScale(x)), x]);
+          if (one && !opts.some(([v]) => Math.abs(+v - one.scale) < 1e-12)) opts.unshift([String(one.scale), S.scaleLabel(one.scale) + ' (custom)']);
+          rows.push(sel('Scale', opts, (e) => String(opts.find(([v]) => Math.abs(+v - e.scale) < 1e-12) ? opts.find(([v]) => Math.abs(+v - e.scale) < 1e-12)[0] : e.scale), (e, v) => ({ ...e, scale: +v })),
+            num('View center X', (e) => e.cx, (e, v) => ({ ...e, cx: v })), num('View center Y', (e) => e.cy, (e, v) => ({ ...e, cy: v })),
+            num('Width', (e) => e.w, (e, v) => (v > 0 ? { ...e, w: v } : e)), num('Height', (e) => e.h, (e, v) => (v > 0 ? { ...e, h: v } : e)),
+            num('Position X', (e) => e.x, (e, v) => ({ ...e, x: v })), num('Position Y', (e) => e.y, (e, v) => ({ ...e, y: v })));
+          break;
+        }
         case 'ellipse':
           rows.push(num('Center X', (e) => e.cx, (e, v) => ({ ...e, cx: v })), num('Center Y', (e) => e.cy, (e, v) => ({ ...e, cy: v })),
             num('Radius ratio', (e) => e.ratio, (e, v) => (v > 0 && v <= 1 ? { ...e, ratio: v } : e)));
@@ -579,6 +603,11 @@
     });
   }
   S.dialog = dialog;
+  S.promptDialog = (title, label, value) => {
+    const inp = h('input', { value: value || '', style: 'width:300px; height:24px; padding:0 6px' });
+    inp.addEventListener('keydown', (e) => e.stopPropagation());
+    return dialog(title, h('div', { style: 'display:flex; gap:10px; align-items:center' }, label, inp), [{ label: 'OK', primary: true, get: () => inp.value.trim() }, { label: 'Cancel', value: null }], { cancelValue: null, enterValue: () => inp.value.trim() });
+  };
   S.alert = (title, text) => dialog(title, h('div', { style: 'max-width:520px; white-space:pre-wrap; line-height:1.5' }, text), [{ label: 'OK', primary: true, value: true }]);
 
   S.textDialog = (title, initial) => {
@@ -627,7 +656,7 @@
     let selName = S.doc.clayer;
     const wrap = h('div', { style: 'max-height:60vh; overflow:auto; min-width:720px' });
     const mutate = (fn) => { S.runningName = 'Layer'; S.mark(); fn(); S.endOp(); S.refreshLayers(); S.clearCaches(); S.render(); S.emit('doc'); draw(); };
-    const usage = () => { const u = new Map(); const visit = (l) => { for (const e of l) u.set(e.layer, (u.get(e.layer) || 0) + 1); }; visit(S.doc.entities); for (const b of Object.values(S.doc.blocks)) visit(b.entities); return u; };
+    const usage = () => { const u = new Map(); const visit = (l) => { for (const e of l) u.set(e.layer, (u.get(e.layer) || 0) + 1); }; visit(S.doc.entities); for (const l of S.doc.layouts || []) visit(l.entities); for (const b of Object.values(S.doc.blocks)) visit(b.entities); return u; };
     function draw() {
       wrap.innerHTML = '';
       const tb = h('table', { cls: 'ltable' });
@@ -645,6 +674,7 @@
             S.doc.layers[idx] = { ...l, name: nv };
             const fix = (e) => (e.layer === old ? { ...e, layer: nv } : e);
             S.doc.entities = S.doc.entities.map(fix);
+            S.doc.layouts = (S.doc.layouts || []).map((lo) => ({ ...lo, entities: lo.entities.map(fix) }));
             const nb = {};
             for (const [k, b] of Object.entries(S.doc.blocks)) nb[k] = { ...b, entities: b.entities.map(fix) };
             S.doc.blocks = nb;
@@ -728,7 +758,7 @@
     const groups = {};
     for (const c of Object.values(S.commands)) (groups[c.group] = groups[c.group] || []).push(c);
     const body = h('div', { cls: 'helpgrid', style: 'width:760px' });
-    const order = ['Draw', 'Modify', 'Annotate', 'Block', 'Layers', 'Utilities', 'View', 'Settings', 'Edit', 'File', 'Help', 'Other'];
+    const order = ['Draw', 'Modify', 'Annotate', 'Block', 'Layout', 'Layers', 'Utilities', 'View', 'Settings', 'Edit', 'File', 'Help', 'Other'];
     for (const g of order) {
       if (!groups[g]) continue;
       body.append(h('div', { cls: 'h' }, g));
@@ -738,7 +768,7 @@
       }
     }
     body.append(h('div', { cls: 'h' }, 'Keys & mouse'));
-    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F12', 'Dynamic input'], ['Ctrl+1', 'Properties palette'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
+    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F12', 'Dynamic input'], ['Ctrl+1', 'Properties palette'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
       body.append(h('div', { cls: 'c' }, k), h('div', {}), h('div', { cls: 'd' }, d));
     }
     return dialog('DraftForge Command Reference', body, [{ label: 'Close', primary: true, value: true }]);
@@ -754,12 +784,15 @@
     if (!doc.layers.some((l) => l.name === '0')) doc.layers.unshift(base.layers[0]);
     const known = new Set(doc.layers.map((l) => l.name));
     const visit = (list) => { for (const e of list) if (e.layer && !known.has(e.layer)) { known.add(e.layer); doc.layers.push({ name: e.layer, color: 7, ltype: 'CONTINUOUS', on: true, frozen: false, locked: false, lw: 0.25 }); } };
-    visit(doc.entities); for (const b of Object.values(doc.blocks)) visit(b.entities || []);
+    doc.layouts = Array.isArray(doc.layouts) ? doc.layouts.filter((l) => l && l.name).map((l) => ({ paper: 'A3', orient: 'landscape', style: 'monochrome', init: true, ...l, entities: Array.isArray(l.entities) ? l.entities : [] })) : [];
+    visit(doc.entities); for (const l of doc.layouts) visit(l.entities); for (const b of Object.values(doc.blocks)) visit(b.entities || []);
     if (!known.has(doc.clayer)) doc.clayer = '0';
     return doc;
   };
   S.setDoc = (doc, file) => {
     S.doc = normalizeDoc(doc);
+    S.space = null; S.views = {};
+    if (!S.doc.layouts.length) S.doc.layouts = [{ name: 'Layout1', paper: 'A3', orient: 'landscape', style: 'monochrome', entities: [], init: false }];
     S.file = { path: null, name: 'Drawing1.dfg', kind: 'dfg', dirty: false, ...file };
     S.undoStack.length = 0; S.redoStack.length = 0;
     S.selection.clear(); S.refreshLayers(); S.clearCaches();

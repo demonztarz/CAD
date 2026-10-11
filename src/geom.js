@@ -177,7 +177,7 @@
   };
   // Text layout in local coordinates (before rotation). `oy` is the first line's baseline.
   function textBox(e) {
-    const lines = String(e.text ?? '').split('\n');
+    const lines = String(e.tag ? e.tag : e.text ?? '').split('\n'); // attribute definitions display their tag
     const h = e.h || 1, gap = h * TEXT.lineGap, L = lines.length;
     const w = Math.max(h * 0.2, ...lines.map((l) => TEXT.measure(l, h) * (e.wf || 1)));
     const x0 = e.ha === 'center' || e.ha === 'middle' ? -w / 2 : e.ha === 'right' ? -w : 0;
@@ -295,6 +295,51 @@
     });
   }
 
+  // attribute definitions (tagged text) live in block definitions but are not drawn in references
+  const isAttDef = (e) => e.type === 'text' && !!e.tag;
+
+  // Hatch pattern line segments clipped to the boundary's bounding box (boundary clipping is left to the
+  // renderer). minSpacing: skip families denser than this; returns { segs: [[x1,y1,x2,y2]], dense }.
+  function hatchSegments(e, bb, minSpacing = 0, maxSegs = 40000) {
+    const segs = [];
+    let dense = false;
+    const corners = [P(bb[0], bb[1]), P(bb[2], bb[1]), P(bb[2], bb[3]), P(bb[0], bb[3])];
+    for (const d of hatchLines(e)) {
+      const u = P(Math.cos(d.angle), Math.sin(d.angle)), n = perp(u);
+      const op = dot(d.offset, n);
+      if (Math.abs(op) < 1e-12) continue;
+      if (Math.abs(op) < minSpacing) { dense = true; continue; }
+      const proj = corners.map((c) => dot(sub(c, d.base), n) / op);
+      const k0 = Math.ceil(Math.min(...proj)), k1 = Math.floor(Math.max(...proj));
+      if (k1 - k0 > maxSegs) { dense = true; continue; }
+      const total = d.dashes.reduce((a, x) => a + Math.abs(x), 0);
+      for (let k = k0; k <= k1; k++) {
+        if (segs.length > maxSegs) { dense = true; break; }
+        const o = add(d.base, mul(d.offset, k));
+        const ts = corners.map((c) => dot(sub(c, o), u));
+        const tmin = Math.min(...ts), tmax = Math.max(...ts);
+        if (!d.dashes.length || total <= 0 || (tmax - tmin) / total > 400 || total < minSpacing) {
+          const a = add(o, mul(u, tmin)), b = add(o, mul(u, tmax));
+          segs.push([a.x, a.y, b.x, b.y]);
+          continue;
+        }
+        let t = Math.floor(tmin / total) * total;
+        while (t < tmax) {
+          for (const dl of d.dashes) {
+            const L = Math.abs(dl);
+            if (dl >= 0) {
+              const a = add(o, mul(u, t)), b = add(o, mul(u, t + Math.max(L, minSpacing * 0.3 || total * 0.01)));
+              segs.push([a.x, a.y, b.x, b.y]);
+            }
+            t += L;
+            if (t >= tmax) break;
+          }
+        }
+      }
+    }
+    return { segs, dense };
+  }
+
   // ---------- primitive decomposition ----------
   // Each entity decomposes into primitives: {k:'L', a, b} segments and {k:'A', c, r, a1, a2, full} CCW arcs.
   function plinePrims(pts, closed, out = []) {
@@ -330,13 +375,14 @@
       case 'solid': polyPrims(e.pts, true, out); break;
       case 'text': polyPrims(textCorners(e), true, out); break;
       case 'hatch': for (const l of e.loops) polyPrims(l, true, out); break;
+      case 'viewport': polyPrims([P(e.x, e.y), P(e.x + e.w, e.y), P(e.x + e.w, e.y + e.h), P(e.x, e.y + e.h)], true, out); break;
       case 'dim': for (const s of dimGeometry(e, ctx && ctx.dimPrec)) out.push(...primsOf(s, ctx)); break;
       case 'insert': {
         const blk = ctx && ctx.blocks && ctx.blocks[e.name];
         if (!blk || (ctx.depth || 0) > 12) { out.push({ k: 'L', a: P(e.x, e.y), b: P(e.x, e.y), pt: true }); break; }
         const m = M.insert(e, blk.base);
         const sub = { ...ctx, depth: (ctx.depth || 0) + 1 };
-        for (const c of blk.entities) for (const pr of primsOf(c, sub)) out.push(transformPrim(pr, m));
+        for (const c of blk.entities) { if (isAttDef(c)) continue; for (const pr of primsOf(c, sub)) out.push(transformPrim(pr, m)); }
         for (const a of e.attribs || []) out.push(...primsOf(a, ctx));
         break;
       }
@@ -543,6 +589,11 @@
         if (o.kind === 'angular') { let a1 = mapAngle(e.cx, e.cy, 1, e.a1), a2 = mapAngle(e.cx, e.cy, 1, e.a2); if (mir) [a1, a2] = [a2, a1]; o.a1 = a1; o.a2 = a2; }
         if ((o.kind === 'horizontal' || o.kind === 'vertical') && Math.abs(Math.sin(rotA)) > 1e-9) o.kind = 'aligned';
         o.h = (o.h || 2.5) * sc; if (o.asz) o.asz *= sc;
+        break;
+      }
+      case 'viewport': {
+        const c = ap(o.x + o.w / 2, o.y + o.h / 2);
+        o.w *= sc; o.h *= sc; o.scale *= sc; o.x = c.x - o.w / 2; o.y = c.y - o.h / 2;
         break;
       }
       case 'insert': {
@@ -861,7 +912,7 @@
   const api = {
     TAU, EPS, P, add, sub, mul, dot, cross, len, dist, norm, perp, lerp, mid, ang, polar, same, normAng, sweep, angInArc, rad, deg,
     M, ACI, aciFromRgb, bulgeArc, bulgeFromSweep, catmull, nurbs, splinePoints, ellipsePoint, ellipsePoints, isFullEllipse,
-    TEXT, textBox, textCorners, fmtNum, dimGeometry, PATTERNS, hatchLines,
+    TEXT, textBox, textCorners, fmtNum, dimGeometry, PATTERNS, hatchLines, hatchSegments, isAttDef,
     prims, primsOf, flatPrims, transformPrim, arcPoints, primBox, bbox, closestOnSeg, closestOnPrim, distToPrim, pointInPoly,
     segSeg, lineCircle, circleCircle, primInter, primParam, primAt, primLength, plinePrims, polyPrims,
     plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, filletLines, chamferLines,

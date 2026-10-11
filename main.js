@@ -123,6 +123,39 @@ ipcMain.handle('write-file', async (_e, { path: p, data, encoding }) => {
   return true;
 });
 
+// Plot a sheet (SVG in millimetres) to a vector PDF or to a printer at its exact paper size.
+ipcMain.handle('plot', async (_e, { svg, widthMm, heightMm, action, path: out }) => {
+  const w = +widthMm, h = +heightMm;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${w}mm ${h}mm;margin:0}html,body{margin:0;padding:0;background:#fff}svg{display:block;width:${w}mm;height:${h}mm}</style></head><body>${svg}</body></html>`;
+  const tmp = path.join(app.getPath('temp'), `draftforge-plot-${process.pid}-${Date.now()}.html`);
+  fs.writeFileSync(tmp, html, 'utf8');
+  const pw = new BrowserWindow({ show: false, webPreferences: { sandbox: true, javascript: false } });
+  try {
+    await pw.loadFile(tmp);
+    if (action === 'pdf') {
+      const data = await pw.webContents.printToPDF({
+        pageSize: { width: w / 25.4, height: h / 25.4 },
+        margins: { marginType: 'none' },
+        printBackground: true,
+        preferCSSPageSize: true,
+      });
+      fs.writeFileSync(out, data);
+      return { ok: true, path: out };
+    }
+    return await new Promise((resolve) => {
+      pw.webContents.print(
+        { silent: false, printBackground: true, margins: { marginType: 'none' }, pageSize: { width: Math.round(w * 1000), height: Math.round(h * 1000) } },
+        (ok, error) => resolve({ ok, error: ok ? undefined : error }),
+      );
+    });
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  } finally {
+    pw.destroy();
+    fs.rmSync(tmp, { force: true });
+  }
+});
+
 ipcMain.handle('confirm-discard', async () => {
   const r = await dialog.showMessageBox(win, {
     type: 'warning',

@@ -10,10 +10,26 @@
     entities: [],
     layers: [{ name: '0', color: 7, ltype: 'CONTINUOUS', on: true, frozen: false, locked: false, lw: 0.25 }],
     blocks: {},
+    layouts: [{ name: 'Layout1', paper: 'A3', orient: 'landscape', style: 'monochrome', entities: [], init: false }],
     clayer: '0',
     settings: { ltscale: 1, textHeight: 2.5, dimHeight: 2.5, dimPrec: 2, prec: 4, insunits: 4 },
   });
   S.doc = S.newDoc();
+  // Paper sizes in mm (landscape: width >= height)
+  S.PAPERS = {
+    A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594], A0: [1189, 841],
+    Letter: [279.4, 215.9], Legal: [355.6, 215.9], Tabloid: [431.8, 279.4],
+    'ANSI C': [558.8, 431.8], 'ANSI D': [863.6, 558.8], 'ARCH D': [914.4, 609.6],
+  };
+  // Active space: null = model space, otherwise the name of a layout (paper space)
+  S.space = null;
+  S.layoutObj = () => (S.space ? (S.doc.layouts || []).find((l) => l.name === S.space) || null : null);
+  S.paperSize = (l) => { const p = S.PAPERS[l.paper] || S.PAPERS.A3; return l.orient === 'portrait' ? [p[1], p[0]] : [p[0], p[1]]; };
+  // S.E is the entity list of the active space
+  Object.defineProperty(S, 'E', {
+    get() { const l = S.layoutObj(); return l ? l.entities : S.doc.entities; },
+    set(v) { const l = S.layoutObj(); if (l) l.entities = v; else S.doc.entities = v; },
+  });
   S.file = { path: null, name: 'Drawing1.dfg', kind: 'dfg', dirty: false };
   S.cur = { color: null, ltype: null, lw: null }; // properties for new objects (null = ByLayer)
   S.selection = new Set();
@@ -68,6 +84,7 @@
   let opMarked = false;
   const snapshot = () => ({
     entities: S.doc.entities.slice(), layers: JSON.parse(JSON.stringify(S.doc.layers)), blocks: { ...S.doc.blocks },
+    layouts: (S.doc.layouts || []).map((l) => ({ ...l, entities: l.entities.slice() })),
     clayer: S.doc.clayer, settings: { ...S.doc.settings }, label: S.runningName || '',
   });
   S.mark = () => {
@@ -80,7 +97,8 @@
   };
   S.endOp = () => { opMarked = false; };
   const restore = (s) => {
-    Object.assign(S.doc, { entities: s.entities, layers: s.layers, blocks: s.blocks, clayer: s.clayer, settings: s.settings });
+    Object.assign(S.doc, { entities: s.entities, layers: s.layers, blocks: s.blocks, clayer: s.clayer, settings: s.settings, layouts: s.layouts });
+    if (S.space && !S.layoutObj()) S.space = null;
     S.refreshLayers(); S.clearCaches(); S.selection.clear(); S.setDirty(true); S.emit('doc'); S.render();
   };
   S.undo = () => {
@@ -105,17 +123,17 @@
     for (const k of Object.keys(e)) if (e[k] === undefined) delete e[k];
     return e;
   };
-  S.add = (e) => { S.mark(); S.decorate(e); S.doc.entities.push(e); S.last = e; S.render(); return e; };
-  S.addRaw = (list) => { S.mark(); for (const e of list) S.doc.entities.push(e); if (list.length) S.last = list[list.length - 1]; S.render(); };
+  S.add = (e) => { S.mark(); S.decorate(e); S.E.push(e); S.last = e; S.render(); return e; };
+  S.addRaw = (list) => { S.mark(); for (const e of list) S.E.push(e); if (list.length) S.last = list[list.length - 1]; S.render(); };
   // replace entities: map old -> array of new (or [] to delete)
   S.replace = (map) => {
     if (!map.size) return;
     S.mark();
     const out = [];
-    for (const e of S.doc.entities) {
+    for (const e of S.E) {
       if (map.has(e)) { for (const n of map.get(e)) out.push(n); } else out.push(e);
     }
-    S.doc.entities = out;
+    S.E = out;
     for (const e of map.keys()) S.selection.delete(e);
     S.render();
   };
@@ -160,7 +178,7 @@
   };
   S.extents = (list) => {
     let bb = [Infinity, Infinity, -Infinity, -Infinity];
-    for (const e of list || S.doc.entities) {
+    for (const e of list || S.E) {
       if (e.type === 'xline' || !visibleLayer(e.layer)) continue;
       const b = S.bbox(e);
       if (!b.every(isFinite)) continue;
@@ -169,6 +187,8 @@
     return isFinite(bb[0]) ? bb : null;
   };
   S.zoomExtents = () => {
+    const lay = S.layoutObj();
+    if (lay) { const [pw, ph] = S.paperSize(lay); S.zoomRect(-pw * 0.02, -ph * 0.02, pw * 1.02, ph * 1.02, 0.01); return; }
     const bb = S.extents();
     if (!bb) { S.view = { cx: 50, cy: 50, scale: Math.min(W, H) / 120 }; S.render(); return; }
     const pad = Math.max(bb[2] - bb[0], bb[3] - bb[1]) * 0.001 + 1e-6;
@@ -253,8 +273,8 @@
   function drawEntity(pt, e, inh, upp, plot, override) {
     const ctx = pt.ctx;
     const cval = colorVal(e, inh);
-    const color = override || S.colorCss(cval, plot);
-    const lwPx = S.st.lwt || plot ? Math.max(1, Math.min(10, lwVal(e, inh) * (plot ? 4 : 3.2))) : 1;
+    const color = override || S.colorCss(cval, !!plot);
+    const lwPx = S.st.lwt || plot === true ? Math.max(1, Math.min(10, lwVal(e, inh) * (plot === true ? 4 : 3.2))) : 1;
     const lts = (S.doc.settings.ltscale || 1);
     const dash = dashFor(ltypeVal(e, inh), upp, lts);
     const width = (pt.extraWidth || 0) + lwPx;
@@ -334,6 +354,10 @@
         break;
       }
       case 'hatch': drawHatch(pt, e, color, upp); break;
+      case 'viewport':
+        pt.begin(color, width, null, upp);
+        ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + e.w, e.y); ctx.lineTo(e.x + e.w, e.y + e.h); ctx.lineTo(e.x, e.y + e.h); ctx.closePath();
+        break;
       case 'dim':
         for (const g of dimGeo(e)) drawEntity(pt, g, inh, upp, plot, override);
         break;
@@ -346,9 +370,9 @@
           const sub = { layer: layerOf(e, inh), color: cval, ltype: ltypeVal(e, inh), lw: lwVal(e, inh) };
           const k = M.scaleOf(m) || 1;
           pt.depth = (pt.depth || 0) + 1;
-          const saveKey = pt.key; pt.key = '';
-          for (const c of blk.entities) if (visibleLayer(layerOf(c, sub))) drawEntity(pt, c, sub, upp / k, plot, override);
-          pt.flush(); pt.depth--; pt.key = saveKey; pt.key = '';
+          pt.key = '';
+          for (const c of blk.entities) if (!G.isAttDef(c) && visibleLayer(layerOf(c, sub))) drawEntity(pt, c, sub, upp / k, plot, override);
+          pt.flush(); pt.depth--; pt.key = '';
           ctx.restore();
         }
         for (const a of e.attribs || []) drawEntity(pt, a, inh, upp, plot, override);
@@ -367,48 +391,42 @@
     if (e.pattern === 'SOLID') {
       ctx.fillStyle = color; loopPath(ctx, e.loops); ctx.fill('evenodd'); return;
     }
-    const bb = S.bbox(e);
+    const { segs, dense } = G.hatchSegments(e, S.bbox(e), 3 * upp, 20000);
     ctx.save();
     loopPath(ctx, e.loops); ctx.clip('evenodd');
     ctx.strokeStyle = color; ctx.lineWidth = upp; ctx.setLineDash([]);
     ctx.beginPath();
-    let budget = 20000, dense = false;
-    const corners = [P(bb[0], bb[1]), P(bb[2], bb[1]), P(bb[2], bb[3]), P(bb[0], bb[3])];
-    for (const d of G.hatchLines(e)) {
-      const u = P(Math.cos(d.angle), Math.sin(d.angle)), n = G.perp(u);
-      const op = G.dot(d.offset, n);
-      if (Math.abs(op) < 1e-12) continue;
-      if (Math.abs(op) / upp < 3) { dense = true; continue; }
-      const proj = corners.map((c) => G.dot(G.sub(c, d.base), n) / op);
-      let k0 = Math.ceil(Math.min(...proj)), k1 = Math.floor(Math.max(...proj));
-      if (k1 - k0 > budget) { dense = true; continue; }
-      const total = d.dashes.reduce((s, x) => s + Math.abs(x), 0);
-      for (let k = k0; k <= k1 && budget > 0; k++, budget--) {
-        const o = G.add(d.base, G.mul(d.offset, k));
-        const ts = corners.map((c) => G.dot(G.sub(c, o), u));
-        const tmin = Math.min(...ts), tmax = Math.max(...ts);
-        if (!d.dashes.length || total <= 0 || (tmax - tmin) / total > 400 || total / upp < 3) {
-          const a = G.add(o, G.mul(u, tmin)), b = G.add(o, G.mul(u, tmax));
-          ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); continue;
-        }
-        let t = Math.floor(tmin / total) * total;
-        while (t < tmax) {
-          for (const dl of d.dashes) {
-            const L = Math.abs(dl);
-            if (dl > 0) { const a = G.add(o, G.mul(u, t)), b = G.add(o, G.mul(u, t + L)); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
-            else if (dl === 0) { const a = G.add(o, G.mul(u, t)); ctx.moveTo(a.x, a.y); ctx.lineTo(a.x + u.x * upp, a.y + u.y * upp); }
-            t += L;
-            if (t >= tmax) break;
-          }
-        }
-      }
-    }
+    for (const g of segs) { ctx.moveTo(g[0], g[1]); ctx.lineTo(g[2], g[3]); }
     ctx.stroke();
     if (dense) { ctx.globalAlpha *= 0.35; ctx.fillStyle = color; loopPath(ctx, e.loops); ctx.fill('evenodd'); }
     ctx.restore();
   }
 
+  function drawIsoGrid(ctx, o, vr) {
+    let step = S.st.gridSpacing || 10;
+    while (step * COS30 * o.view.scale < 10) step *= 5;
+    while (step * COS30 * o.view.scale > 400) step /= 5;
+    const lw = 1 / o.view.scale;
+    const corners = [P(vr[0], vr[1]), P(vr[2], vr[1]), P(vr[2], vr[3]), P(vr[0], vr[3])];
+    const diag = Math.hypot(vr[2] - vr[0], vr[3] - vr[1]);
+    const family = (deg, spacing, color, every) => {
+      const a = G.rad(deg), u = P(Math.cos(a), Math.sin(a)), n = P(-u.y, u.x);
+      const ds = corners.map((c) => G.dot(c, n) / spacing);
+      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.beginPath();
+      for (let k = Math.floor(Math.min(...ds)); k <= Math.ceil(Math.max(...ds)); k++) {
+        if (every && k % every) continue;
+        const base = G.mul(n, k * spacing), mid = G.add(base, G.mul(u, G.dot(P((vr[0] + vr[2]) / 2, (vr[1] + vr[3]) / 2), u)));
+        const a1 = G.sub(mid, G.mul(u, diag)), b1 = G.add(mid, G.mul(u, diag));
+        ctx.moveTo(a1.x, a1.y); ctx.lineTo(b1.x, b1.y);
+      }
+      ctx.stroke();
+    };
+    for (const d of [30, 90, 150]) family(d, step * COS30, '#283039');
+    for (const d of [30, 90, 150]) family(d, step * COS30, '#323c48', 5);
+  }
+
   function drawGrid(ctx, o, vr) {
+    if (S.st.iso) return drawIsoGrid(ctx, o, vr);
     let step = S.st.gridSpacing || 10;
     while (step * o.view.scale < 8) step *= 5;
     while (step * o.view.scale > 400) step /= 5;
@@ -429,15 +447,45 @@
     ctx.strokeStyle = 'rgba(60,180,80,0.45)'; ctx.beginPath(); ctx.moveTo(0, vr[1]); ctx.lineTo(0, vr[3]); ctx.stroke();
   }
 
+  // model geometry seen through a paper-space viewport (paper units are mm)
+  function drawViewport(ctx, vp, upp, plot) {
+    if (!(vp.scale > 0) || !(vp.w > 0) || !(vp.h > 0)) return;
+    const k = vp.scale, mx = vp.x + vp.w / 2, my = vp.y + vp.h / 2;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(vp.x, vp.y, vp.w, vp.h); ctx.clip();
+    ctx.transform(k, 0, 0, k, mx - vp.cx * k, my - vp.cy * k);
+    const vr = [vp.cx - vp.w / 2 / k, vp.cy - vp.h / 2 / k, vp.cx + vp.w / 2 / k, vp.cy + vp.h / 2 / k];
+    const pt = new Painter(ctx, { vr });
+    for (const e of S.doc.entities) {
+      if (!visibleLayer(e.layer)) continue;
+      if (e.type !== 'xline') { const b = S.bbox(e); if (b[2] < vr[0] || b[0] > vr[2] || b[3] < vr[1] || b[1] > vr[3]) continue; }
+      drawEntity(pt, e, null, upp / k, plot);
+    }
+    pt.flush();
+    ctx.restore();
+  }
+  S.drawViewport = drawViewport;
+
   function drawDoc(ctx, o) {
+    const lay = o.layout === undefined ? S.layoutObj() : o.layout;
     ctx.setTransform(o.DPR, 0, 0, o.DPR, 0, 0);
-    ctx.fillStyle = o.plot ? '#ffffff' : S.bg; ctx.fillRect(0, 0, o.W, o.H);
+    ctx.fillStyle = o.plot ? '#ffffff' : lay ? '#3b4048' : S.bg; ctx.fillRect(0, 0, o.W, o.H);
     const s = o.view.scale;
     ctx.setTransform(o.DPR * s, 0, 0, -o.DPR * s, o.DPR * (o.W / 2 - o.view.cx * s), o.DPR * (o.H / 2 + o.view.cy * s));
     const vr = [o.view.cx - o.W / 2 / s, o.view.cy - o.H / 2 / s, o.view.cx + o.W / 2 / s, o.view.cy + o.H / 2 / s];
-    if (o.grid && !o.plot) drawGrid(ctx, o, vr);
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const upp = 1 / s;
+    const plot = o.plot ? true : lay ? 'paper' : false;
+    if (lay) {
+      const [pw, ph] = S.paperSize(lay);
+      if (!o.plot) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(pw * 0.006, -ph * 0.008, pw, ph); }
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, pw, ph);
+      if (!o.plot) {
+        ctx.strokeStyle = '#9aa3ad'; ctx.lineWidth = upp; ctx.setLineDash([4 * upp, 3 * upp]);
+        ctx.strokeRect(5, 5, pw - 10, ph - 10); ctx.setLineDash([]);
+      }
+      for (const e of lay.entities) if (e.type === 'viewport' && visibleLayer(e.layer)) drawViewport(ctx, e, upp, plot);
+    } else if (o.grid && !o.plot) drawGrid(ctx, o, vr);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const pt = new Painter(ctx, { vr });
     const visible = (e) => {
       if (!visibleLayer(e.layer)) return false;
@@ -445,11 +493,11 @@
       const b = S.bbox(e);
       return !(b[2] < vr[0] || b[0] > vr[2] || b[3] < vr[1] || b[1] > vr[3]);
     };
-    for (const e of S.doc.entities) {
+    for (const e of lay ? lay.entities : S.doc.entities) {
       if (!visible(e)) continue;
       const l = layerMap.get(e.layer);
-      if (l && l.locked && !o.plot) { pt.flush(); ctx.globalAlpha = 0.5; drawEntity(pt, e, null, upp, o.plot); pt.flush(); ctx.globalAlpha = 1; pt.key = ''; }
-      else drawEntity(pt, e, null, upp, o.plot);
+      if (l && l.locked && !o.plot) { pt.flush(); ctx.globalAlpha = 0.5; drawEntity(pt, e, null, upp, plot); pt.flush(); ctx.globalAlpha = 1; pt.key = ''; }
+      else drawEntity(pt, e, null, upp, plot);
     }
     pt.flush();
     // selection highlight
@@ -459,9 +507,7 @@
       for (const e of o.sel) if (visible(e)) drawEntity(hp, e, null, upp, false, '#3d8bff');
       hp.flush(); ctx.globalAlpha = 1;
       const dp = new Painter(ctx, { vr });
-      const origDash = dashFor;
-      void origDash;
-      for (const e of o.sel) if (visible(e)) { drawEntity(dp, e, null, upp, false, '#ffffff'); }
+      for (const e of o.sel) if (visible(e)) drawEntity(dp, e, null, upp, false, lay ? '#1d4fa8' : '#ffffff');
       dp.flush();
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -537,8 +583,15 @@
       if (mode !== 'pick') {
         const L = Math.max(W, H) * (S.st.cursorSize >= 100 ? 2 : S.st.cursorSize / 100);
         c.beginPath();
-        c.moveTo(Math.round(sx - L) + 0.5, Math.round(sy) + 0.5); c.lineTo(Math.round(sx + L) + 0.5, Math.round(sy) + 0.5);
-        c.moveTo(Math.round(sx) + 0.5, Math.round(sy - L) + 0.5); c.lineTo(Math.round(sx) + 0.5, Math.round(sy + L) + 0.5);
+        if (S.st.iso || S.st.snapAng) {
+          for (const a of S.orthoAxes()) {
+            const dx = Math.cos(a) * L, dy = -Math.sin(a) * L;
+            c.moveTo(sx - dx, sy - dy); c.lineTo(sx + dx, sy + dy);
+          }
+        } else {
+          c.moveTo(Math.round(sx - L) + 0.5, Math.round(sy) + 0.5); c.lineTo(Math.round(sx + L) + 0.5, Math.round(sy) + 0.5);
+          c.moveTo(Math.round(sx) + 0.5, Math.round(sy - L) + 0.5); c.lineTo(Math.round(sx) + 0.5, Math.round(sy + L) + 0.5);
+        }
         c.stroke();
       }
       if (mode !== 'point') {
@@ -581,7 +634,7 @@
   // ======================= picking =======================
   S.entitiesNear = (w, tolW) => {
     const out = [];
-    for (const e of S.doc.entities) {
+    for (const e of S.E) {
       if (!visibleLayer(e.layer)) continue;
       if (e.type !== 'xline') {
         const b = S.bbox(e);
@@ -620,7 +673,7 @@
       { k: 'L', a: P(r[2], r[3]), b: P(r[0], r[3]) }, { k: 'L', a: P(r[0], r[3]), b: P(r[0], r[1]) },
     ];
     const out = [];
-    for (const e of S.doc.entities) {
+    for (const e of S.E) {
       if (!S.isSelectable(e)) continue;
       if (e.type === 'xline') {
         if (crossing && S.prims(e).some((pr) => edges.some((ed) => G.primInter(pr, ed).length))) out.push(e);
@@ -703,20 +756,47 @@
     return best;
   };
 
-  // Compute the effective point for a point request (snap, ortho, polar, grid snap)
+  // Drafting axes used by ortho, the crosshair and the grid: the current isometric plane, or the snap angle.
+  S.ISO_AXES = { left: [150, 90], top: [30, 150], right: [30, 90] };
+  S.orthoAxes = () => {
+    if (S.st.iso) return S.ISO_AXES[S.st.isoplane || 'left'].map(G.rad);
+    const a = G.rad(S.st.snapAng || 0);
+    return [a, a + Math.PI / 2];
+  };
+  const COS30 = Math.cos(Math.PI / 6);
+  // nearest point of the snap grid (rectangular, or the isometric lattice)
+  S.gridSnap = (p) => {
+    const g = S.st.snapSpacing || 10;
+    if (S.st.iso) {
+      const dx = g * COS30, i = Math.round(p.x / dx), j = Math.round((p.y - i * g / 2) / g);
+      return P(i * dx, j * g + i * g / 2);
+    }
+    return P(Math.round(p.x / g) * g, Math.round(p.y / g) * g);
+  };
+
+  // Compute the effective point for a point request (snap, ortho, polar, grid snap, angle override)
   S.effectivePoint = (sx, sy, base) => {
     S.track = null;
     const raw = S.s2w(sx, sy);
     const sn = S.findSnap(sx, sy, base);
     if (sn) return { p: sn.p, snap: sn };
     let p = raw;
-    if (S.st.snap) { const g = S.st.snapSpacing || 10; p = P(Math.round(p.x / g) * g, Math.round(p.y / g) * g); }
+    if (S.st.snap) p = S.gridSnap(p);
     if (base) {
       const v = G.sub(p, base), d = G.len(v);
-      if (S.st.ortho && d > 0) {
-        const horiz = Math.abs(v.x) >= Math.abs(v.y);
-        p = horiz ? P(base.x + v.x, base.y) : P(base.x, base.y + v.y);
-        S.track = { base, ang: horiz ? (v.x >= 0 ? 0 : Math.PI) : (v.y >= 0 ? Math.PI / 2 : -Math.PI / 2), dist: horiz ? Math.abs(v.x) : Math.abs(v.y) };
+      if (S.angleLock != null && d > 0) {
+        // angle override (<angle typed at the prompt): stay on the locked direction
+        const u = P(Math.cos(S.angleLock), Math.sin(S.angleLock)), t = G.dot(v, u);
+        p = G.add(base, G.mul(u, t));
+        S.track = { base, ang: t >= 0 ? S.angleLock : S.angleLock + Math.PI, dist: Math.abs(t) };
+      } else if (S.st.ortho && d > 0) {
+        let best = null;
+        for (const a of S.orthoAxes()) {
+          const u = P(Math.cos(a), Math.sin(a)), t = G.dot(v, u);
+          if (!best || Math.abs(t) > Math.abs(best.t)) best = { a, u, t };
+        }
+        p = G.add(base, G.mul(best.u, best.t));
+        S.track = { base, ang: best.t >= 0 ? best.a : best.a + Math.PI, dist: Math.abs(best.t) };
       } else if (S.st.polar && d * S.view.scale > 10) {
         const inc = G.rad(S.st.polarInc || 45), a = Math.atan2(v.y, v.x), k = Math.round(a / inc), snapA = k * inc;
         const perpPx = Math.abs(Math.sin(a - snapA)) * d * S.view.scale;
@@ -753,6 +833,10 @@
         else { add(P(e.x1, e.y1), 'd1'); add(P(e.x2, e.y2), 'd2'); add(P(e.lx, e.ly), 'loc'); }
         break;
       case 'hatch': { const b = S.bbox(e); add(P((b[0] + b[2]) / 2, (b[1] + b[3]) / 2), 'pos'); break; }
+      case 'viewport':
+        add(P(e.x, e.y), 'k0'); add(P(e.x + e.w, e.y), 'k1'); add(P(e.x + e.w, e.y + e.h), 'k2'); add(P(e.x, e.y + e.h), 'k3');
+        add(P(e.x + e.w / 2, e.y + e.h / 2), 'pos');
+        break;
     }
     return g;
   };
@@ -791,6 +875,14 @@
         if (idx === 'c') return moved();
         if (idx === 'maj') return { ...e, mx: p.x - e.cx, my: p.y - e.cy };
         { const R = Math.hypot(e.mx, e.my); return { ...e, ratio: Math.max(1e-6, Math.min(1, G.dist(P(e.cx, e.cy), p) / R)) }; }
+      case 'viewport': {
+        if (idx === 'pos') return moved();
+        const i = +idx.slice(1), corners = [P(e.x, e.y), P(e.x + e.w, e.y), P(e.x + e.w, e.y + e.h), P(e.x, e.y + e.h)];
+        const opp = corners[(i + 2) % 4];
+        const w = Math.abs(p.x - opp.x), h = Math.abs(p.y - opp.y);
+        if (w < 1e-6 || h < 1e-6) return e;
+        return { ...e, x: Math.min(p.x, opp.x), y: Math.min(p.y, opp.y), w, h };
+      }
       case 'dim':
         if (idx === 'd1') return { ...e, x1: p.x, y1: p.y };
         if (idx === 'd2') return { ...e, x2: p.x, y2: p.y };
@@ -869,7 +961,7 @@
   const finishInput = (value, echo) => {
     const inp = S.input;
     if (!inp) return;
-    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.oneShot = null;
+    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.oneShot = null; S.angleLock = null;
     if (echo != null) S.msg(`${inp.prompt}${inp.keywords && inp.keywords.length ? ' [' + inp.keywords.join('/') + ']' : ''}: ${echo}`, 'echo');
     S.overlay();
     inp.resolve(value);
@@ -877,7 +969,7 @@
   S.cancelInput = () => {
     const inp = S.input;
     if (!inp) return false;
-    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.win = null;
+    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.win = null; S.angleLock = null;
     S.overlay();
     inp.reject(new Cancel());
     return true;
@@ -905,11 +997,11 @@
     for (;;) {
       const r = await request('select', prompt, { ...opts, temp, allowNone: true });
       if (r == null) break;
-      if (r === 'ALL') { for (const e of S.doc.entities) if (S.isSelectable(e)) temp.add(e); S.msg(`${temp.size} found`); S.render(); continue; }
-      if (r === 'L' && S.last && S.doc.entities.includes(S.last)) { temp.add(S.last); S.render(); continue; }
-      if (r === 'P' && S.prevSel) { for (const e of S.prevSel) if (S.doc.entities.includes(e)) temp.add(e); S.render(); continue; }
+      if (r === 'ALL') { for (const e of S.E) if (S.isSelectable(e)) temp.add(e); S.msg(`${temp.size} found`); S.render(); continue; }
+      if (r === 'L' && S.last && S.E.includes(S.last)) { temp.add(S.last); S.render(); continue; }
+      if (r === 'P' && S.prevSel) { for (const e of S.prevSel) if (S.E.includes(e)) temp.add(e); S.render(); continue; }
     }
-    const list = [...temp].filter((e) => S.doc.entities.includes(e));
+    const list = [...temp].filter((e) => S.E.includes(e));
     S.prevSel = list;
     S.selection = new Set();
     S.render();
@@ -954,6 +1046,14 @@
         S.msg('Requires a number.', 'err'); return;
       }
       default: {
+        const lock = text.match(/^<\s*(-?\d*\.?\d+)$/);
+        if (lock && (inp.kind === 'point' || inp.kind === 'distance')) {
+          if (!inp.base) { S.msg('Angle override needs a previous point.', 'err'); return; }
+          S.angleLock = G.rad(+lock[1]);
+          S.msg(`Angle Override: ${lock[1]}`);
+          S.overlay();
+          return;
+        }
         if (osnapCodes[up.slice(0, 3)] && (inp.kind === 'point' || inp.kind === 'distance')) {
           S.oneShot = osnapCodes[up.slice(0, 3)]; S.msg(`of`); return;
         }
@@ -963,7 +1063,8 @@
           if (inp.kind === 'point' && inp.base) { // direct distance entry along the cursor direction
             const cur = S.cursorWorld || G.add(inp.base, P(1, 0));
             let dir = G.sub(cur, inp.base);
-            if (S.track) dir = P(Math.cos(S.track.ang), Math.sin(S.track.ang));
+            if (S.angleLock != null) dir = P(Math.cos(S.angleLock), Math.sin(S.angleLock));
+            else if (S.track) dir = P(Math.cos(S.track.ang), Math.sin(S.track.ang));
             if (G.len(dir) < 1e-12) dir = P(1, 0);
             const p = G.add(inp.base, G.mul(G.norm(dir), v));
             S.lastPoint = p;
@@ -1165,6 +1266,7 @@
     const r = ov.getBoundingClientRect();
     const e = S.pick(ev.clientX - r.left, ev.clientY - r.top);
     if (e && e.type === 'text') S.emit('edittext', e);
+    else if (e && e.type === 'insert' && e.attribs && e.attribs.length) S.emit('editattribs', e);
     else if (e) { S.selection = new Set([e]); S.emit('selection'); S.emit('properties', true); S.render(); }
   });
 

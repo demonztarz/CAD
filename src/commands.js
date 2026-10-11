@@ -167,7 +167,15 @@
 
   R('ELLIPSE', async () => {
     let c, a1p;
-    const first = await S.getPoint('Specify axis endpoint of ellipse or', { keywords: ['Center'] });
+    const first = await S.getPoint('Specify axis endpoint of ellipse or', { keywords: S.st.iso ? ['Center', 'Isocircle'] : ['Center'] });
+    if (first === 'Isocircle') {
+      const ic = await S.getPoint('Specify center of isocircle');
+      let r = await S.getDistance('Specify radius of isocircle or', { base: ic, keywords: ['Diameter'], preview: (p) => [S.isocircle(ic, G.dist(ic, p))] });
+      if (r === 'Diameter') r = (await S.getDistance('Specify diameter of isocircle', { base: ic, preview: (p) => [S.isocircle(ic, G.dist(ic, p) / 2)] })) / 2;
+      if (!(r > 0)) { S.msg('Value must be positive and nonzero.', 'err'); return; }
+      S.add(S.isocircle(ic, r));
+      return;
+    }
     if (first === 'Center') {
       c = await S.getPoint('Specify center of ellipse');
       a1p = await S.getPoint('Specify endpoint of axis', { base: c });
@@ -186,6 +194,18 @@
     const u = G.norm(G.sub(a1p, c));
     S.add(mk(G.add(c, G.mul(G.perp(u), r))));
   }, { aliases: ['EL'], desc: 'Creates an ellipse', group: 'Draw' });
+
+  // Isometric circle in the current isoplane: an ellipse through r along both plane axes.
+  S.isocircle = (c, r) => {
+    const [a1, a2] = S.ISO_AXES[S.st.isoplane || 'left'].map(G.rad);
+    const A = P(Math.cos(a1) * r, Math.sin(a1) * r), B = P(Math.cos(a2) * r, Math.sin(a2) * r);
+    // principal axes of P(t) = A cos t + B sin t (conjugate semi-diameters)
+    const t0 = 0.5 * Math.atan2(2 * G.dot(A, B), G.dot(A, A) - G.dot(B, B));
+    const at = (t) => G.add(G.mul(A, Math.cos(t)), G.mul(B, Math.sin(t)));
+    let maj = at(t0), min = at(t0 + Math.PI / 2);
+    if (G.len(min) > G.len(maj)) [maj, min] = [min, maj];
+    return { type: 'ellipse', cx: c.x, cy: c.y, mx: maj.x, my: maj.y, ratio: G.len(min) / G.len(maj) };
+  };
 
   R('SPLINE', async () => {
     const fit = [await S.getPoint('Specify first point')];
@@ -356,13 +376,13 @@
     const hs = S.hatchSettings || (S.hatchSettings = { pattern: 'ANSI31', scale: 1, angle: 0 });
     const loops = [];
     for (;;) {
-      const r = await S.getPoint(`Pick internal point or  (${hs.pattern}, scale ${hs.scale}, angle ${hs.angle}°)`, { keywords: ['Select objects', 'Pattern', 'Scale', 'Angle'], allowNone: true });
+      const r = await S.getPoint(`Pick internal point or  (${hs.pattern}, scale ${hs.scale}, angle ${hs.angle}°)`, { keywords: ['Select objects', 'Pattern', 'sCale', 'Angle'], allowNone: true });
       if (r == null) break;
       if (r === 'Pattern') {
         hs.pattern = await S.getKeyword('Enter a pattern name', ['SOLID', 'ANSI31', 'ANSI32', 'ANSI37', 'NET', 'LINE', 'DASH', 'BRICK', 'DOTS'], hs.pattern);
         continue;
       }
-      if (r === 'Scale') { hs.scale = await S.getNumber('Specify hatch pattern scale', { def: hs.scale }); continue; }
+      if (r === 'sCale') { hs.scale = await S.getNumber('Specify hatch pattern scale', { def: hs.scale }); continue; }
       if (r === 'Angle') { hs.angle = await S.getNumber('Specify hatch pattern angle', { def: hs.angle }); continue; }
       if (r === 'Select objects') {
         const list = await S.getSelection('Select objects');
@@ -371,7 +391,7 @@
         break;
       }
       // pick internal point: smallest closed object containing the point, plus closed islands inside it
-      const closed = S.doc.entities.filter((e) => S.isSelectable(e) && e.type !== 'hatch').map((e) => ({ e, l: closedLoop(e) })).filter((x) => x.l && x.l.length > 2);
+      const closed = S.E.filter((e) => S.isSelectable(e) && e.type !== 'hatch').map((e) => ({ e, l: closedLoop(e) })).filter((x) => x.l && x.l.length > 2);
       const containing = closed.filter((x) => G.pointInPoly(r, x.l)).map((x) => ({ ...x, area: Math.abs(G.polyArea(x.l)) })).sort((a, b) => a.area - b.area);
       if (!containing.length) { S.msg('Valid hatch boundary not found. Use closed objects (circle, closed polyline, ellipse) or "Select objects".', 'err'); continue; }
       const outer = containing[0];
@@ -493,7 +513,7 @@
 
   function cuttersFor(exclude) {
     const vr = S.viewRect(), out = [];
-    for (const e of S.doc.entities) {
+    for (const e of S.E) {
       if (e === exclude || !S.isSelectable(e) || e.type === 'text' || e.type === 'hatch') continue;
       const b = S.bbox(e);
       if (e.type !== 'xline' && (b[2] < vr[0] || b[0] > vr[2] || b[3] < vr[1] || b[1] > vr[3])) continue;
@@ -772,8 +792,13 @@
     const p = await S.getPoint('Specify insertion point', { ghost: (q) => [S.decorate(mk(q))] });
     const s = await S.getNumber('Enter scale factor', { def: 1 });
     const rot = await S.getAngle('Specify rotation angle', { base: p, def: 0, ghost: (q) => [S.decorate(mk(p, s, G.ang(p, q)))] });
-    void blk;
-    S.add(mk(p, s, G.rad(rot)));
+    const ins = mk(p, s, G.rad(rot));
+    const defs = S.attDefs(blk);
+    if (defs.length) {
+      const vals = await S.attributeDialog(`Attributes - ${name}`, defs);
+      if (vals) ins.attribs = S.makeAttribs(blk, S.decorate({ ...ins }), vals);
+    }
+    S.add(ins);
   }, { aliases: ['I', 'DDINSERT'], desc: 'Inserts a block into the drawing', group: 'Block', pickfirst: false });
 
   // ---------------------------------------------------------------- INQUIRY
@@ -849,6 +874,25 @@
   const toggle = (key, label) => () => { S.st[key] = !S.st[key]; S.saveSettings(); S.msg(`<${label} ${S.st[key] ? 'on' : 'off'}>`); S.emit('status'); S.render(); };
   R('GRID', toggle('grid', 'Grid'), { desc: 'Toggles the grid display (F7)', group: 'Settings', noUndo: true, pickfirst: false });
   R('SNAP', toggle('snap', 'Snap'), { aliases: ['SN'], desc: 'Toggles snap mode (F9)', group: 'Settings', noUndo: true, pickfirst: false });
+  S.cycleIsoplane = () => {
+    const order = ['left', 'top', 'right'];
+    S.st.isoplane = order[(order.indexOf(S.st.isoplane || 'left') + 1) % 3];
+    S.saveSettings(); S.emit('status'); S.render();
+    S.msg(`<Isoplane ${S.st.isoplane[0].toUpperCase() + S.st.isoplane.slice(1)}>`);
+  };
+  R('ISODRAFT', async () => {
+    const r = await S.getKeyword('Enter isometric setting', ['Left', 'Top', 'Right', 'Off'], S.st.iso ? 'Off' : (S.st.isoplane ? S.st.isoplane[0].toUpperCase() + S.st.isoplane.slice(1) : 'Left'));
+    if (r === 'Off') { S.st.iso = false; S.msg('<Isometric drafting off>'); }
+    else { S.st.iso = true; S.st.isoplane = r.toLowerCase(); S.msg(`<Isometric drafting on, isoplane ${r}>  F5 cycles planes; F8 locks to the plane's axes.`); }
+    S.saveSettings(); S.emit('status'); S.render();
+  }, { aliases: ['ISO'], desc: 'Turns isometric drafting on/off and picks the isoplane (F5 cycles planes)', group: 'Settings', noUndo: true, pickfirst: false });
+  R('ISOPLANE', () => S.cycleIsoplane(), { desc: 'Cycles the isometric plane: left, top, right (F5 / Ctrl+E)', group: 'Settings', noUndo: true, pickfirst: false });
+  R('SNAPANG', async () => {
+    const v = await S.getAngle('Specify snap/ortho angle', { def: S.st.snapAng || 0 });
+    S.st.snapAng = ((v % 360) + 360) % 360; if (S.st.snapAng > 359.999999) S.st.snapAng = 0;
+    S.saveSettings(); S.render();
+    S.msg(`Ortho and crosshair locked to ${S.fmt(S.st.snapAng, 2)}° / ${S.fmt((S.st.snapAng + 90) % 360, 2)}°. Set 0 to return to normal.`);
+  }, { desc: 'Rotates the ortho lock and crosshair to an angle', group: 'Settings', noUndo: true, pickfirst: false });
   R('ORTHO', toggle('ortho', 'Ortho'), { desc: 'Toggles orthogonal mode (F8)', group: 'Settings', noUndo: true, pickfirst: false });
   R('LWDISPLAY', toggle('lwt', 'Lineweight'), { aliases: ['LWT'], desc: 'Toggles lineweight display', group: 'Settings', noUndo: true, pickfirst: false });
   R('OSNAP', () => S.openOsnapDialog(), { aliases: ['OS', 'DDOSNAP'], desc: 'Sets running object snap modes', group: 'Settings', noUndo: true, pickfirst: false });
@@ -892,7 +936,7 @@
     const p = await S.getPoint('Specify insertion point', { ghost: (q) => ghostOf(cb.entities, M.translate(q.x - cb.base.x, q.y - cb.base.y)) });
     S.addRaw(cb.entities.map((e) => G.transformEntity(e, M.translate(p.x - cb.base.x, p.y - cb.base.y))));
   }, { desc: 'Pastes objects from the clipboard (Ctrl+V)', group: 'Edit', pickfirst: false });
-  R('SELECTALL', () => { S.selection = new Set(S.doc.entities.filter(S.isSelectable)); S.emit('selection'); S.render(); S.msg(`${S.selection.size} found`); },
+  R('SELECTALL', () => { S.selection = new Set(S.E.filter(S.isSelectable)); S.emit('selection'); S.render(); S.msg(`${S.selection.size} found`); },
     { aliases: ['AI_SELALL'], desc: 'Selects all objects (Ctrl+A)', group: 'Edit', noUndo: true, pickfirst: false });
 
   R('NEW', () => S.fileNew(), { aliases: ['QNEW'], desc: 'Creates a new drawing', group: 'File', noUndo: true, pickfirst: false });
@@ -901,7 +945,7 @@
   R('SAVEAS', () => S.fileSave(true), { desc: 'Saves the drawing under a new name or format', group: 'File', noUndo: true, pickfirst: false });
   R('DXFOUT', () => S.exportFile('dxf'), { desc: 'Exports the drawing to DXF', group: 'File', noUndo: true, pickfirst: false });
   R('SVGOUT', () => S.exportFile('svg'), { desc: 'Exports the drawing to SVG', group: 'File', noUndo: true, pickfirst: false });
-  R('PNGOUT', () => S.exportFile('png'), { aliases: ['JPGOUT', 'PLOT'], desc: 'Exports the drawing as a PNG image', group: 'File', noUndo: true, pickfirst: false });
+  R('PNGOUT', () => S.exportFile('png'), { aliases: ['JPGOUT'], desc: 'Exports the current view as a PNG image', group: 'File', noUndo: true, pickfirst: false });
   R('HELP', () => S.showHelp(), { aliases: ['?'], desc: 'Shows the command reference (F1)', group: 'Help', noUndo: true, pickfirst: false });
   R('QUIT', () => S.quit && S.quit(), { aliases: ['EXIT'], desc: 'Exits DraftForge', group: 'File', noUndo: true, pickfirst: false });
 })();
