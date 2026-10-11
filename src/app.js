@@ -146,8 +146,8 @@
   let W = 800, H = 600, DPR = 1;
   S.view = { cx: 50, cy: 50, scale: 6 };
   S.size = () => ({ W, H });
-  S.w2s = (p) => P((p.x - S.view.cx) * S.view.scale + W / 2, H / 2 - (p.y - S.view.cy) * S.view.scale);
-  S.s2w = (x, y) => P((x - W / 2) / S.view.scale + S.view.cx, (H / 2 - y) / S.view.scale + S.view.cy);
+  S.w2s = (p) => (syncSize(), P((p.x - S.view.cx) * S.view.scale + W / 2, H / 2 - (p.y - S.view.cy) * S.view.scale));
+  S.s2w = (x, y) => (syncSize(), P((x - W / 2) / S.view.scale + S.view.cx, (H / 2 - y) / S.view.scale + S.view.cy));
   S.viewRect = () => { const a = S.s2w(0, H), b = S.s2w(W, 0); return [a.x, a.y, b.x, b.y]; };
 
   function resize() {
@@ -158,6 +158,11 @@
     S.render();
   }
   new ResizeObserver(resize).observe(ov.parentElement);
+  window.addEventListener('resize', resize);
+  // Coordinates depend on the viewport size; re-read it synchronously if layout changed before the
+  // ResizeObserver callback ran (e.g. right after the window is first shown).
+  const syncSize = () => { const p = ov.parentElement; if (p.clientWidth && (p.clientWidth !== Math.round(W) || p.clientHeight !== Math.round(H))) resize(); };
+  S.syncSize = syncSize;
 
   S.zoomAt = (sx, sy, f) => {
     const before = S.s2w(sx, sy);
