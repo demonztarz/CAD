@@ -531,18 +531,19 @@
       worldT();
       const pt = new Painter(c, { vr }); pt.extraWidth = 2;
       c.globalAlpha = 0.9;
-      drawEntity(pt, S.hover, null, upp, false, '#9fd0ff'); pt.flush();
+      drawEntity(pt, S.hover, null, upp, false, S.layoutObj() ? '#1f6fe5' : '#9fd0ff'); pt.flush();
       c.globalAlpha = 1;
     }
     // ghost (objects being moved/copied) and preview geometry
     if ((S.ghost && S.ghost.length) || (S.preview && S.preview.length)) {
       worldT();
       const pt = new Painter(c, { vr });
-      for (const e of S.ghost || []) drawEntity(pt, e, null, upp, false);
+      const pal = S.layoutObj() ? 'paper' : false;
+      for (const e of S.ghost || []) drawEntity(pt, e, null, upp, pal);
       pt.flush();
       for (const e of S.preview || []) {
-        if (e._rubber) { pt.flush(); c.setLineDash([6 * upp, 4 * upp]); c.strokeStyle = '#d7dde5'; c.lineWidth = upp; c.beginPath(); c.moveTo(e.x1, e.y1); c.lineTo(e.x2, e.y2); c.stroke(); c.setLineDash([]); pt.key = ''; continue; }
-        drawEntity(pt, S.decorate({ ...e }), null, upp, false);
+        if (e._rubber) { pt.flush(); c.setLineDash([6 * upp, 4 * upp]); c.strokeStyle = pal ? '#4a5260' : '#d7dde5'; c.lineWidth = upp; c.beginPath(); c.moveTo(e.x1, e.y1); c.lineTo(e.x2, e.y2); c.stroke(); c.setLineDash([]); pt.key = ''; continue; }
+        drawEntity(pt, S.decorate({ ...e }), null, upp, pal);
       }
       pt.flush();
     }
@@ -579,7 +580,14 @@
     if (S.mouse.inside) {
       const { sx, sy } = S.mouse;
       const mode = S.cursorMode();
-      c.strokeStyle = '#ffffff'; c.lineWidth = 1;
+      // dark cursor over the white sheet in a layout, light everywhere else
+      let cursorColor = '#ffffff';
+      const lay = S.layoutObj();
+      if (lay) {
+        const w = S.mouse.w, [pw, ph] = S.paperSize(lay);
+        if (w.x >= 0 && w.x <= pw && w.y >= 0 && w.y <= ph) cursorColor = '#000000';
+      }
+      c.strokeStyle = cursorColor; c.lineWidth = 1;
       if (mode !== 'pick') {
         const L = Math.max(W, H) * (S.st.cursorSize >= 100 ? 2 : S.st.cursorSize / 100);
         c.beginPath();
