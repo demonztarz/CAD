@@ -347,7 +347,7 @@
   // ======================================================== status bar
   const TOGGLES = [
     ['grid', 'gridicon', 'Display drawing grid (F7)'], ['snap', 'snapgrid', 'Snap mode (F9)'], ['ortho', 'ortho', 'Ortho mode (F8)'],
-    ['polar', 'polar', 'Polar tracking (F10)'], ['iso', 'iso', 'Isometric drafting - F5 cycles isoplane'], ['osnap', 'osnap', 'Object snap (F3) - right-click for settings'], ['lwt', 'lwt', 'Show lineweights'], ['dyn', 'dyn', 'Dynamic input (F12)'],
+    ['polar', 'polar', 'Polar tracking (F10)'], ['iso', 'iso', 'Isometric drafting - F5 cycles isoplane'], ['osnap', 'osnap', 'Object snap (F3) - right-click for settings'], ['otrack', 'otrack', 'Object snap tracking (F11) - pause over a snap point to acquire it'], ['lwt', 'lwt', 'Show lineweights'], ['dyn', 'dyn', 'Dynamic input (F12)'],
   ];
   function buildStatus() {
     const t = $('toggles'); t.innerHTML = '';
@@ -373,7 +373,7 @@
     const t = ev.target;
     const inField = t && t !== input && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA');
     const k = ev.key, ctrl = ev.ctrlKey || ev.metaKey;
-    const fk = { F1: () => S.showHelp(), F2: () => $('cmdline').classList.toggle('expanded'), F3: () => toggleKey('osnap', 'Osnap'), F5: () => S.cycleIsoplane(), F7: () => toggleKey('grid', 'Grid'), F8: () => toggleKey('ortho', 'Ortho'), F9: () => toggleKey('snap', 'Snap'), F10: () => toggleKey('polar', 'Polar'), F12: () => toggleKey('dyn', 'Dynamic input') };
+    const fk = { F1: () => S.showHelp(), F2: () => $('cmdline').classList.toggle('expanded'), F3: () => toggleKey('osnap', 'Osnap'), F5: () => S.cycleIsoplane(), F7: () => toggleKey('grid', 'Grid'), F8: () => toggleKey('ortho', 'Ortho'), F9: () => toggleKey('snap', 'Snap'), F10: () => toggleKey('polar', 'Polar'), F11: () => { toggleKey('otrack', 'Object Snap Tracking'); if (!S.st.otrack) S.clearAcquired(); }, F12: () => toggleKey('dyn', 'Dynamic input') };
     if (fk[k]) { ev.preventDefault(); fk[k](); return; }
     if (k === 'Escape') { ev.preventDefault(); closeMenu(); input.value = ''; ac.classList.add('hidden'); S.escape(); if (inField) input.focus(); updateDyn(); return; }
     if (inField) return;
@@ -768,7 +768,7 @@
       }
     }
     body.append(h('div', { cls: 'h' }, 'Keys & mouse'));
-    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F12', 'Dynamic input'], ['Ctrl+1', 'Properties palette'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
+    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F11', 'Object snap tracking: pause over a snap point to acquire it, then follow the green alignment paths'], ['F12', 'Dynamic input'], ['Ctrl+1', 'Properties palette'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
       body.append(h('div', { cls: 'c' }, k), h('div', {}), h('div', { cls: 'd' }, d));
     }
     return dialog('DraftForge Command Reference', body, [{ label: 'Close', primary: true, value: true }]);

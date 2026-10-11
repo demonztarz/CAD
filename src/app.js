@@ -35,7 +35,7 @@
   S.selection = new Set();
   S.clipboard = null;
   S.st = {
-    grid: true, snap: false, ortho: false, polar: true, osnap: true, lwt: false, dyn: true,
+    grid: true, snap: false, ortho: false, polar: true, osnap: true, otrack: true, lwt: false, dyn: true,
     osmodes: new Set(['end', 'mid', 'cen', 'int', 'qua', 'nod', 'ins', 'per']),
     snapSpacing: 10, gridSpacing: 10, polarInc: 45, pickbox: 5, aperture: 10, cursorSize: 5,
   };
@@ -579,6 +579,30 @@
       c.strokeStyle = 'rgba(120,255,120,0.75)'; c.setLineDash([3, 4]); c.lineWidth = 1;
       c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(a.x + dir.x * 4000, a.y + dir.y * 4000); c.stroke(); c.setLineDash([]);
     }
+    // object snap tracking: acquired points, active paths and the tracked point
+    if (S.input && S.acq.length) {
+      c.strokeStyle = '#7ddc8a'; c.lineWidth = 1.5;
+      for (const a of S.acq) { const q = S.w2s(a.p); c.beginPath(); c.moveTo(q.x - 5, q.y); c.lineTo(q.x + 5, q.y); c.moveTo(q.x, q.y - 5); c.lineTo(q.x, q.y + 5); c.stroke(); }
+    }
+    if (S.trackPaths) {
+      c.strokeStyle = 'rgba(125,220,138,0.8)'; c.lineWidth = 1; c.setLineDash([2, 4]);
+      for (const t of S.trackPaths) {
+        c.beginPath();
+        if (t.k === 'C') { const q = S.w2s(t.c); c.arc(q.x, q.y, t.r * S.view.scale, 0, G.TAU); }
+        else { const q = S.w2s(t.o), dx = Math.cos(t.ang) * 6000, dy = -Math.sin(t.ang) * 6000; c.moveTo(q.x - dx, q.y - dy); c.lineTo(q.x + dx, q.y + dy); }
+        c.stroke();
+      }
+      c.setLineDash([]);
+    }
+    if (S.trackPt) {
+      const q = S.w2s(S.trackPt.p);
+      c.strokeStyle = '#7ddc8a'; c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(q.x - 5, q.y - 5); c.lineTo(q.x + 5, q.y + 5); c.moveTo(q.x + 5, q.y - 5); c.lineTo(q.x - 5, q.y + 5); c.stroke();
+      c.font = '12px "Segoe UI", system-ui, sans-serif';
+      const w = c.measureText(S.trackPt.label).width + 10;
+      c.fillStyle = 'rgba(255,255,225,0.95)'; c.fillRect(q.x + 12, q.y - 32, w, 18);
+      c.fillStyle = '#111'; c.fillText(S.trackPt.label, q.x + 17, q.y - 19);
+    }
     // snap marker
     if (S.snapPt) drawSnapMarker(c, S.w2s(S.snapPt.p), S.snapPt.kind);
     // cursor
@@ -638,8 +662,8 @@
     if (label) {
       c.font = '12px "Segoe UI", system-ui, sans-serif';
       const w = c.measureText(label).width + 10;
-      c.fillStyle = 'rgba(255,255,225,0.95)'; c.fillRect(p.x + 12, p.y + 12, w, 18);
-      c.fillStyle = '#111'; c.fillText(label, p.x + 17, p.y + 25);
+      c.fillStyle = 'rgba(255,255,225,0.95)'; c.fillRect(p.x + 12, p.y - 32, w, 18);
+      c.fillStyle = '#111'; c.fillText(label, p.x + 17, p.y - 19);
     }
     c.restore();
   }
@@ -708,7 +732,7 @@
   function snapCandidates(e, w, tolW, base) {
     const out = [];
     const modes = S.oneShot ? new Set([S.oneShot]) : S.st.osmodes;
-    const add = (kind, p) => { if (modes.has(kind)) out.push({ kind, p }); };
+    const add = (kind, p, pr) => { if (modes.has(kind)) out.push(pr ? { kind, p, pr } : { kind, p }); };
     const pr = S.prims(e);
     const tess = e.type === 'ellipse' || e.type === 'spline' || e.type === 'text' || e.type === 'hatch';
     if (e.type === 'point') add('nod', P(e.x, e.y));
@@ -722,15 +746,15 @@
     for (const p of pr) {
       if (p.k === 'L') {
         if (p.pt) continue;
-        if (!tess) { add('end', p.a); add('end', p.b); add('mid', G.mid(p.a, p.b)); }
+        if (!tess) { add('end', p.a, p); add('end', p.b, p); add('mid', G.mid(p.a, p.b)); }
         if (base && modes.has('per')) {
           const ab = G.sub(p.b, p.a), L2 = G.dot(ab, ab);
           if (L2 > 1e-24) { const t = G.dot(G.sub(base, p.a), ab) / L2; if (t >= -1e-9 && t <= 1 + 1e-9) add('per', G.add(p.a, G.mul(ab, t))); }
         }
       } else {
-        if (G.dist(w, p.c) <= p.r + tolW * 2 || G.dist(w, p.c) < tolW * 3) add('cen', p.c);
+        if (G.dist(w, p.c) <= p.r + tolW * 2 || G.dist(w, p.c) < tolW * 3) add('cen', p.c, p);
         for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2; if (p.full || G.angInArc(a, p.a1, p.a2)) add('qua', G.polar(p.c, a, p.r)); }
-        if (!p.full) { add('end', G.polar(p.c, p.a1, p.r)); add('end', G.polar(p.c, p.a2, p.r)); add('mid', G.polar(p.c, p.a1 + G.sweep(p.a1, p.a2) / 2, p.r)); }
+        if (!p.full) { add('end', G.polar(p.c, p.a1, p.r), p); add('end', G.polar(p.c, p.a2, p.r), p); add('mid', G.polar(p.c, p.a1 + G.sweep(p.a1, p.a2) / 2, p.r)); }
         if (base && modes.has('per')) { const a = G.ang(p.c, base); if (p.full || G.angInArc(a, p.a1, p.a2)) add('per', G.polar(p.c, a, p.r)); }
         if (base && modes.has('tan')) {
           const d = G.dist(base, p.c);
@@ -787,14 +811,83 @@
     return P(Math.round(p.x / g) * g, Math.round(p.y / g) * g);
   };
 
-  // Compute the effective point for a point request (snap, ortho, polar, grid snap, angle override)
+  // ======================= object snap tracking =======================
+  // Acquired points (pause over an object snap). Each yields tracking paths: straight alignment lines
+  // through the point, plus an extension path (line continuation, or the arc's full circle).
+  S.acq = [];
+  const SNAP_NAMES = { end: 'Endpoint', mid: 'Midpoint', cen: 'Center', qua: 'Quadrant', int: 'Intersection', per: 'Perpendicular', tan: 'Tangent', nod: 'Node', ins: 'Insertion' };
+  const trackAngles = () => (S.st.iso ? [30, 90, 150].map(G.rad) : S.orthoAxes());
+  S.toggleAcquired = (sn) => {
+    const i = S.acq.findIndex((a) => G.dist(a.p, sn.p) < 1e-9 * Math.max(1, Math.abs(sn.p.x) + Math.abs(sn.p.y)));
+    if (i >= 0) S.acq.splice(i, 1);
+    else {
+      const a = { p: sn.p, kind: sn.kind, ext: null };
+      if (sn.pr && sn.kind === 'end') {
+        if (sn.pr.k === 'L' && G.dist(sn.pr.a, sn.pr.b) > 1e-12) a.ext = { k: 'L', o: sn.p, ang: G.ang(sn.pr.a, sn.pr.b), label: 'Extension' };
+        else if (sn.pr.k === 'A') a.ext = { k: 'C', c: sn.pr.c, r: sn.pr.r, label: 'Extension' };
+      }
+      if (sn.pr && sn.kind === 'cen' && sn.pr.k === 'A' && !sn.pr.full) a.ext = { k: 'C', c: sn.pr.c, r: sn.pr.r, label: 'Extension' };
+      S.acq.push(a);
+      if (S.acq.length > 7) S.acq.shift();
+    }
+    S.overlay();
+  };
+  S.clearAcquired = () => { S.acq.length = 0; S.trackPaths = null; S.trackPt = null; };
+  const pathsOf = (a) => {
+    const out = trackAngles().map((ang) => ({ k: 'L', o: a.p, ang, label: `${SNAP_NAMES[a.kind] || 'Point'}: <${Math.round(((G.deg(ang) % 180) + 180) % 180)}°`, src: a }));
+    const parallel = (x, y) => Math.abs(Math.sin(x - y)) < 1e-9;
+    if (a.ext && !(a.ext.k === 'L' && trackAngles().some((ang) => parallel(ang, a.ext.ang)))) out.push({ ...a.ext, src: a });
+    return out;
+  };
+  // paths as primitives: lines are a unit segment intersected as an infinite line (exact)
+  const pathPrim = (t) => (t.k === 'C' ? { k: 'A', c: t.c, r: t.r, a1: 0, a2: G.TAU, full: true }
+    : { k: 'L', a: t.o, b: G.add(t.o, P(Math.cos(t.ang), Math.sin(t.ang))) });
+  const inter = (t1, t2) => G.primInter(pathPrim(t1), t2.k ? pathPrim(t2) : t2, t1.k === 'L', t2.k === 'L');
+  const pathDist = (t, w) => (t.k === 'C' ? Math.abs(G.dist(w, t.c) - t.r) : Math.abs(G.cross(P(Math.cos(t.ang), Math.sin(t.ang)), G.sub(w, t.o))));
+  const pathProject = (t, w) => {
+    if (t.k === 'C') { const d = G.dist(w, t.c) || 1; return G.add(t.c, G.mul(G.sub(w, t.c), t.r / d)); }
+    const u = P(Math.cos(t.ang), Math.sin(t.ang));
+    return G.add(t.o, G.mul(u, G.dot(G.sub(w, t.o), u)));
+  };
+  // Snap the cursor to tracking paths, their mutual intersections and their intersections with geometry.
+  // `forced` is a path the point must stay on (ortho/polar/angle lock from the base point).
+  function trackSnap(w, forced) {
+    if (!S.st.otrack || !S.acq.length) return null;
+    const tol = 8 / S.view.scale;
+    const paths = [];
+    for (const a of S.acq) for (const t of pathsOf(a)) if (pathDist(t, w) <= tol || forced) paths.push(t);
+    const near = paths.filter((t) => pathDist(t, w) <= tol);
+    const pool = forced ? [forced, ...near] : near;
+    if (!pool.length) return null;
+    // intersections: path x path, and path x geometry under the cursor
+    let best = null;
+    const consider = (p, ts, label) => { const d = G.dist(p, w); if (d <= tol * 1.6 && (!best || d < best.d)) best = { p, ts, label, d }; };
+    for (let i = 0; i < pool.length; i++) for (let j = i + 1; j < pool.length; j++) {
+      if (pool[i].src && pool[i].src === pool[j].src && pool[i].k === 'L' && pool[j].k === 'L') continue; // lines through the same point meet at it
+      for (const p of inter(pool[i], pool[j])) consider(p, [pool[i], pool[j]], 'Intersection');
+    }
+    const geo = [];
+    for (const e of S.entitiesNear(w, tol * 2)) for (const pr of S.prims(e)) if (!pr.pt && G.distToPrim(w, pr) <= tol * 2) geo.push(pr);
+    for (const t of pool) for (const pr of geo.slice(0, 200)) for (const p of G.primInter(pathPrim(t), pr, t.k === 'L', false)) consider(p, [t], 'Intersection');
+    if (best) { if (forced && !best.ts.includes(forced)) best = null; }
+    if (best) return { p: best.p, paths: best.ts, label: best.ts.length > 1 ? best.ts.map((t) => t.label).join(', ') : `${best.label}, ${best.ts[0].label}` };
+    if (forced) return null;
+    // otherwise slide along the nearest path
+    near.sort((a, b) => pathDist(a, w) - pathDist(b, w));
+    const t = near[0], p = pathProject(t, w);
+    return { p, paths: [t], label: `${t.label}${t.k === 'L' ? `  ${S.fmt(G.dist(t.o, p))}` : ''}` };
+  }
+
+  // Compute the effective point for a point request (snap, tracking, ortho, polar, grid snap, angle override)
   S.effectivePoint = (sx, sy, base) => {
-    S.track = null;
+    S.track = null; S.trackPaths = null; S.trackPt = null;
     const raw = S.s2w(sx, sy);
     const sn = S.findSnap(sx, sy, base);
     if (sn) return { p: sn.p, snap: sn };
     let p = raw;
     if (S.st.snap) p = S.gridSnap(p);
+    // constraint from the base point, if any
+    let forced = null;
     if (base) {
       const v = G.sub(p, base), d = G.len(v);
       if (S.angleLock != null && d > 0) {
@@ -802,6 +895,7 @@
         const u = P(Math.cos(S.angleLock), Math.sin(S.angleLock)), t = G.dot(v, u);
         p = G.add(base, G.mul(u, t));
         S.track = { base, ang: t >= 0 ? S.angleLock : S.angleLock + Math.PI, dist: Math.abs(t) };
+        forced = { k: 'L', o: base, ang: S.angleLock, label: 'Angle' };
       } else if (S.st.ortho && d > 0) {
         let best = null;
         for (const a of S.orthoAxes()) {
@@ -810,6 +904,7 @@
         }
         p = G.add(base, G.mul(best.u, best.t));
         S.track = { base, ang: best.t >= 0 ? best.a : best.a + Math.PI, dist: Math.abs(best.t) };
+        forced = { k: 'L', o: base, ang: best.a, label: 'Ortho' };
       } else if (S.st.polar && d * S.view.scale > 10) {
         const inc = G.rad(S.st.polarInc || 45), a = Math.atan2(v.y, v.x), k = Math.round(a / inc), snapA = k * inc;
         const perpPx = Math.abs(Math.sin(a - snapA)) * d * S.view.scale;
@@ -817,8 +912,15 @@
           const proj = d * Math.cos(a - snapA);
           p = G.polar(base, snapA, proj);
           S.track = { base, ang: snapA, dist: proj };
+          forced = { k: 'L', o: base, ang: snapA, label: `Polar: <${Math.round(((G.deg(snapA) % 360) + 360) % 360)}°` };
         }
       }
+    }
+    const tr = trackSnap(forced ? p : raw, forced);
+    if (tr) {
+      S.trackPaths = tr.paths; S.trackPt = { p: tr.p, label: tr.label };
+      if (forced && base) S.track = { base, ang: G.ang(base, tr.p), dist: G.dist(base, tr.p) };
+      return { p: tr.p, snap: null, tracked: true };
     }
     return { p, snap: null };
   };
@@ -974,7 +1076,7 @@
   const finishInput = (value, echo) => {
     const inp = S.input;
     if (!inp) return;
-    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.oneShot = null; S.angleLock = null;
+    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.oneShot = null; S.angleLock = null; S.trackPaths = null; S.trackPt = null;
     if (echo != null) S.msg(`${inp.prompt}${inp.keywords && inp.keywords.length ? ' [' + inp.keywords.join('/') + ']' : ''}: ${echo}`, 'echo');
     S.overlay();
     inp.resolve(value);
@@ -1142,6 +1244,14 @@
 
   // ======================= mouse =======================
   let panning = null;
+  // pause over an object snap to acquire it for tracking (pause again to release it)
+  let dwellTimer = 0, dwellKey = '';
+  function dwell(sn) {
+    const key = sn && sn.kind !== 'nea' ? `${sn.kind}:${sn.p.x}:${sn.p.y}` : '';
+    if (key === dwellKey) return;
+    dwellKey = key; clearTimeout(dwellTimer);
+    if (key && S.st.otrack) dwellTimer = setTimeout(() => { if (dwellKey === key && S.input) { S.toggleAcquired(sn); dwellKey = ''; } }, 450);
+  }
   const wantsPoint = () => S.input && (S.input.kind === 'point' || S.input.kind === 'distance' || S.input.kind === 'angle');
   function onMove(ev) {
     const r = ov.getBoundingClientRect();
@@ -1155,6 +1265,7 @@
     if (wantsPoint() || (S.input && S.input.grip)) {
       const ep = S.effectivePoint(sx, sy, base);
       S.snapPt = ep.snap; S.cursorWorld = ep.p;
+      dwell(ep.snap);
     } else {
       S.snapPt = null; S.track = null; S.cursorWorld = S.s2w(sx, sy);
     }
@@ -1317,6 +1428,7 @@
       else { console.error(err); S.msg('Error: ' + (err && err.message ? err.message : err), 'err'); }
     } finally {
       S.running = null; S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.win = null; S.oneShot = null;
+      S.clearAcquired();
       S.pickfirst = false;
       S.endOp();
       S.setPrompt('');

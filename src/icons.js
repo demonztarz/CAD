@@ -83,6 +83,7 @@
     pdf: s('M6 3 H15 L19 7 V21 H6 Z', W) + `<rect x="3" y="11" width="15" height="7" rx="1" fill="#e5484d"/>` + txt(4.2, 16.8, 'PDF', '#fff', 5.6),
     preview: s('M3 12 C6 6, 18 6, 21 12 C18 18, 6 18, 3 12 Z', W, 1.3) + '<circle cx="12" cy="12" r="3" fill="#7fb6ff"/>',
     iso: s('M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z', W, 1.2) + s('M12 12 L20 7.5 M12 12 L4 7.5 M12 12 V21', B, 1.2),
+    otrack: s('M7 7 H13 V13 H7 Z', W, 1.3) + s('M13 10 H22 M10 13 V22', Gn, 1.2) + s('M15 10 H16 M18 10 H19', '#1b1f25', 1.2) + '<circle cx="10" cy="10" r="1.4" fill="#7ddc8a"/>',
     model: s('M3 18 L12 22 L21 18 L12 14 Z M3 18 V8 L12 4 L21 8 V18 M12 14 V4', W, 1.1),
   };
   window.Icons = {

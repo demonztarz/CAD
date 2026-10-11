@@ -29,6 +29,7 @@ code-signed. Choose **More info → Run anyway**.
 - **Layouts and plotting:** Model/Layout tabs, paper sizes A4–A0, Letter, Tabloid and ANSI/ARCH, viewports at standard scales (MVIEW, VPSCALE, VPFIT, VPPAN), PLOT to a printer or a vector **PDF** with preview, monochrome/grayscale/colour plot styles and lineweights
 - **Title blocks:** TITLEBLOCK inserts an ISO-style frame and title block sized to the paper, with fillable fields (title, drawing no., scale, date, drawn/checked, sheet, revision, project, company); double-click to edit. Build your own with ATTDEF + BLOCK
 - **Isometric drafting:** ISODRAFT (status-bar cube icon) gives an isometric grid, snap and crosshair; F5 / Ctrl+E cycles left/top/right planes; ortho (F8) locks to the plane's axes; ELLIPSE → Isocircle
+- **Object snap tracking (F11):** pause over a snap point to acquire it (green +), then follow the dotted alignment paths; snaps where two paths cross, where a path meets lines, circles, arcs, ellipses or splines, or where it crosses your ortho/polar direction. Line ends extend straight, arc ends extend round their circle
 - **Angle locks:** type `<30` at any point prompt to lock the next point to 30°; SNAPANG rotates the ortho lock and crosshair
 - **Organisation:** layers (on/off, freeze, lock, colour, linetype, lineweight), indexed and true colours, linetypes, lineweights, Properties palette
 - **Interface:** ribbon, command line with autocomplete and history, dynamic input tooltip, window/crossing selection, right-click menus, undo/redo

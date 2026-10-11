@@ -81,6 +81,21 @@ const root = path.join(__dirname, '..');
     const ln = await win.evaluate(() => App.E[App.E.length - 1]);
     assert.ok(Math.abs(ln.x2 - 10 * Math.cos(Math.PI / 6)) < 1e-9 && Math.abs(ln.y2 - 55) < 1e-9, JSON.stringify(ln));
   });
+  await step('object snap tracking locks square to an acquired point', async () => {
+    await submit('ISODRAFT', 'Off', 'NEW');
+    await win.evaluate(() => { App.file.dirty = false; });
+    await win.evaluate(() => { App.view = { cx: 60, cy: 0, scale: 5 }; App.st.ortho = true; App.st.otrack = true; App.st.osnap = true; App.render(); });
+    await submit('REC', '0,0', '40,20', 'LINE', '100,-30');
+    const toPageXY = (x, y) => win.evaluate(([x, y]) => { const r = document.getElementById('ov').getBoundingClientRect(); const s = App.w2s({ x, y }); return { x: r.left + s.x, y: r.top + s.y }; }, [x, y]);
+    let q = await toPageXY(40, 20); await win.mouse.move(q.x, q.y, { steps: 4 }); await win.waitForTimeout(700);
+    assert.strictEqual(await win.evaluate(() => App.acq.length), 1, 'point not acquired');
+    q = await toPageXY(100.5, 21); await win.mouse.move(q.x, q.y, { steps: 4 }); await win.waitForTimeout(60);
+    await win.mouse.down(); await win.mouse.up(); await win.waitForTimeout(40);
+    await submit('');
+    const ln = await win.evaluate(() => App.E[App.E.length - 1]);
+    await win.evaluate(() => { App.st.ortho = false; });
+    assert.ok(ln.type === 'line' && ln.x2 === 100 && Math.abs(ln.y2 - 20) < 1e-12, JSON.stringify(ln));
+  });
   await step('layout with title block exports an A3 vector PDF', async () => {
     await win.evaluate(() => App.setSpace('Layout1'));
     const vp = await win.evaluate(() => App.E.find((e) => e.type === 'viewport'));
