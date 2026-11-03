@@ -262,7 +262,7 @@
       c.beginPath(); this.open = true; this.key = key;
     }
   };
-  Painter.prototype.flush = function () { if (this.open) { this.ctx.stroke(); this.open = false; } };
+  Painter.prototype.flush = function () { if (this.open) { this.ctx.stroke(); this.ctx.setLineDash([]); this.open = false; } };
 
   function dashFor(ltype, upp, lts) {
     if (!ltype || ltype === 'CONTINUOUS') return null;
@@ -474,6 +474,7 @@
   function drawDoc(ctx, o) {
     const lay = o.layout === undefined ? S.layoutObj() : o.layout;
     ctx.setTransform(o.DPR, 0, 0, o.DPR, 0, 0);
+    ctx.setLineDash([]);
     ctx.fillStyle = o.plot ? '#ffffff' : lay ? '#3b4048' : S.bg; ctx.fillRect(0, 0, o.W, o.H);
     const s = o.view.scale;
     ctx.setTransform(o.DPR * s, 0, 0, -o.DPR * s, o.DPR * (o.W / 2 - o.view.cx * s), o.DPR * (o.H / 2 + o.view.cy * s));
@@ -527,6 +528,7 @@
   function drawOverlay() {
     const c = ox;
     c.setTransform(DPR, 0, 0, DPR, 0, 0);
+    c.setLineDash([]);
     c.clearRect(0, 0, W, H);
     const s = S.view.scale;
     const worldT = () => c.setTransform(DPR * s, 0, 0, -DPR * s, DPR * (W / 2 - S.view.cx * s), DPR * (H / 2 + S.view.cy * s));
