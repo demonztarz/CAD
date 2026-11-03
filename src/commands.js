@@ -959,6 +959,7 @@
     { aliases: ['AI_SELALL'], desc: 'Selects all objects (Ctrl+A)', group: 'Edit', noUndo: true, pickfirst: false });
 
   R('NEW', () => S.fileNew(), { aliases: ['QNEW'], desc: 'Creates a new drawing', group: 'File', noUndo: true, pickfirst: false });
+  R('CLOSE', () => S.closeTab(), { desc: 'Closes the current drawing (asks to save changes)', group: 'File', noUndo: true, pickfirst: false });
   R('OPEN', () => S.fileOpen(), { desc: 'Opens a DWG, DXF or DraftForge drawing', group: 'File', noUndo: true, pickfirst: false });
   R('QSAVE', () => S.fileSave(false), { aliases: ['SAVE'], desc: 'Saves the current drawing', group: 'File', noUndo: true, pickfirst: false });
   R('SAVEAS', () => S.fileSave(true), { desc: 'Saves the drawing under a new name or format', group: 'File', noUndo: true, pickfirst: false });

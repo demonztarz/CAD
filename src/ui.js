@@ -185,10 +185,13 @@
   // ======================================================== title bar
   const QAT = [['newf', 'New (Ctrl+N)', 'NEW'], ['open', 'Open (Ctrl+O)', 'OPEN'], ['save', 'Save (Ctrl+S)', 'QSAVE'], ['saveas', 'Save As (Ctrl+Shift+S)', 'SAVEAS'], ['undo', 'Undo (Ctrl+Z)', 'U'], ['redo', 'Redo (Ctrl+Y)', 'REDO'], ['plot', 'Plot / PDF (Ctrl+P)', 'PLOT']];
   for (const [icon, tip, cmd] of QAT) $('qat').append(h('button', { title: tip, html: I(icon, 18), onclick: () => run(cmd) }));
+  // open drawings: one entry per file tab; the active one's live state is in S (doc, file, undo, view...)
+  const docTabs = [];
+  let curTab = 0;
   function updateTitle() {
     const n = S.file.name + (S.file.dirty ? '*' : '');
     $('title').innerHTML = `DraftForge ${esc(S.version || '')} &nbsp; <b>${esc(n)}</b>`;
-    $('ftab-name').textContent = n;
+    renderTabs();
     document.title = `${n} - DraftForge`;
     if (desk) desk.setTitle(`DraftForge - ${n}`);
   }
@@ -439,6 +442,7 @@
       const key = k.toLowerCase();
       if (key === 's') { ev.preventDefault(); run(ev.shiftKey ? 'SAVEAS' : 'QSAVE'); return; }
       if (key === '1') { ev.preventDefault(); togglePalette(); return; }
+      if (key === 'tab') { ev.preventDefault(); if (docTabs.length > 1) switchTab((curTab + (ev.shiftKey ? -1 : 1) + docTabs.length) % docTabs.length); return; }
       if (key === 'e') { ev.preventDefault(); S.cycleIsoplane(); return; }
       if (key === '9') { ev.preventDefault(); $('cmdline').classList.toggle('hidden'); return; }
       if (map[key] && !(t === input && input.value && (key === 'c' || key === 'v' || key === 'x' || key === 'a'))) {
@@ -825,7 +829,7 @@
       }
     }
     body.append(h('div', { cls: 'h' }, 'Keys & mouse'));
-    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F11', 'Object snap tracking: pause over a snap point to acquire it, then follow the green alignment paths'], ['F12', 'Dynamic input'], ['Tab', 'Dynamic input: lock the typed length (or X), switch to the angle (or Y) field; Enter places the point'], ['Ctrl+1', 'Properties palette'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
+    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F11', 'Object snap tracking: pause over a snap point to acquire it, then follow the green alignment paths'], ['F12', 'Dynamic input'], ['Tab', 'Dynamic input: lock the typed length (or X), switch to the angle (or Y) field; Enter places the point'], ['Ctrl+1', 'Properties palette'], ['Ctrl+Tab', 'Next open drawing (Ctrl+Shift+Tab: previous)'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
       body.append(h('div', { cls: 'c' }, k), h('div', {}), h('div', { cls: 'd' }, d));
     }
     return dialog('DraftForge Command Reference', body, [{ label: 'Close', primary: true, value: true }]);
@@ -851,7 +855,7 @@
     S.space = null; S.views = {};
     if (!S.doc.layouts.length) S.doc.layouts = [{ name: 'Layout1', paper: 'A3', orient: 'landscape', style: 'monochrome', entities: [], init: false }];
     S.file = { path: null, name: 'Drawing1.dfg', kind: 'dfg', dirty: false, ...file };
-    S.undoStack.length = 0; S.redoStack.length = 0;
+    S.undoStack = []; S.redoStack = [];
     S.selection.clear(); S.refreshLayers(); S.clearCaches();
     S.emit('doc'); S.emit('selection'); updateTitle();
     S.zoomExtents();
@@ -859,7 +863,7 @@
   async function confirmDiscard() {
     if (!S.file.dirty) return true;
     if (desk) {
-      const r = await desk.confirmDiscard();
+      const r = await desk.confirmDiscard(S.file.name);
       if (r === 'cancel') return false;
       if (r === 'save') return S.fileSave(false);
       return true;
@@ -869,11 +873,75 @@
     if (v === 'save') return S.fileSave(false);
     return true;
   }
-  S.fileNew = async () => {
-    if (!(await confirmDiscard())) return;
+  // ---- file tabs
+  const tabState = () => ({ doc: S.doc, file: S.file, undo: S.undoStack, redo: S.redoStack, view: { ...S.view }, views: S.views, space: S.space, lastLayout: S.lastLayout });
+  const tabFile = (i) => (i === curTab ? S.file : docTabs[i].file);
+  async function stopCommand() {
+    if (S.input || S.running) { S.cancelInput(); await new Promise((r) => setTimeout(r, 0)); }
+  }
+  function enterTab(i) {
+    const t = docTabs[i];
+    curTab = i;
+    S.doc = t.doc; S.file = t.file; S.undoStack = t.undo; S.redoStack = t.redo;
+    S.views = t.views; S.space = t.space; S.lastLayout = t.lastLayout;
+    S.selection.clear(); S.lastPoint = null; S.hover = null;
+    if (S.clearAcquired) S.clearAcquired();
+    S.refreshLayers(); S.clearCaches();
+    S.view = { ...t.view };
+    S.emit('space'); S.emit('doc'); S.emit('selection'); updateTitle(); S.render();
+  }
+  async function switchTab(i) {
+    if (i === curTab || !docTabs[i]) return;
+    await stopCommand();
+    docTabs[curTab] = tabState();
+    enterTab(i);
+    S.msg(`Switched to ${S.file.name}.`);
+  }
+  // an untouched empty "DrawingN" gets replaced by the next opened file, like AutoCAD does
+  const isBlankTab = () => !S.file.path && !S.file.dirty && S.file.kind === 'dfg' && !S.doc.entities.length && !S.undoStack.length;
+  function openTab(doc, file, replaceBlank) {
+    if (!(replaceBlank && isBlankTab())) {
+      if (docTabs.length) docTabs[curTab] = tabState(); // none left when the last tab was just closed
+      curTab = docTabs.length;
+      docTabs.push(null);
+    }
+    S.setDoc(doc, file);
+    docTabs[curTab] = tabState();
+    renderTabs();
+  }
+  async function closeTab(i) {
+    if (i == null) i = curTab;
+    if (!docTabs[i]) return false;
+    if (i !== curTab) await switchTab(i); else await stopCommand();
+    if (!(await confirmDiscard())) return false;
+    docTabs.splice(curTab, 1);
+    if (!docTabs.length) { curTab = 0; newDrawingTab(); }
+    else enterTab(Math.min(curTab, docTabs.length - 1));
+    return true;
+  }
+  S.closeTab = closeTab;
+  S.switchTab = switchTab;
+  S.openDrawings = () => docTabs.map((_, i) => tabFile(i).name);
+  function renderTabs() {
+    const bar = $('filetabs');
+    bar.innerHTML = '';
+    bar.append(h('div', { cls: 'ftab start', title: 'Start', onclick: () => showStart() }, 'Start'));
+    docTabs.forEach((_, i) => {
+      const f = tabFile(i);
+      bar.append(h('div', { cls: 'ftab' + (i === curTab ? ' active' : ''), title: f.path || f.name, onclick: () => switchTab(i) },
+        h('span', { cls: 'nm' }, f.name + (f.dirty ? '*' : '')),
+        h('span', { cls: 'x', title: 'Close', onclick: (e) => { e.stopPropagation(); closeTab(i); } }, '\u00d7')));
+    });
+    bar.append(h('div', { cls: 'ftab plus', title: 'New drawing (Ctrl+N)', onclick: () => S.fileNew() }, '+'));
+  }
+  function newDrawingTab() {
     untitled.n++;
-    S.setDoc(S.newDoc(), { name: `Drawing${untitled.n}.dfg` });
+    openTab(S.newDoc(), { name: `Drawing${untitled.n}.dfg` });
     S.view = { cx: 50, cy: 50, scale: Math.min(S.size().W, S.size().H) / 120 }; S.render();
+  }
+  S.fileNew = async () => {
+    await stopCommand();
+    newDrawingTab();
     S.msg('New drawing created.');
   };
   function loadFile(f) {
@@ -889,7 +957,9 @@
         res = { doc: d };
       }
       const name = baseName(f.path || f.name || 'Drawing');
-      S.setDoc(res.doc, { path: f.path || null, name, kind });
+      const already = f.path ? docTabs.findIndex((_, i) => tabFile(i).path === f.path) : -1;
+      if (already >= 0) { switchTab(already); S.msg(`${name} is already open.`); return; }
+      openTab(res.doc, { path: f.path || null, name, kind }, true);
       const st = res.stats;
       S.msg(`Opened ${name}: ${S.doc.entities.length} objects, ${S.doc.layers.length} layers, ${Object.keys(S.doc.blocks).length} block definitions.`);
       if (st && st.skipped && Object.keys(st.skipped).length) {
@@ -905,7 +975,6 @@
   }
   S.loadFile = loadFile;
   S.fileOpen = async () => {
-    if (!(await confirmDiscard())) return;
     if (desk) {
       const f = await desk.openDialog();
       if (f) loadFile(f);
@@ -1048,14 +1117,10 @@
       h('div', { style: 'font-weight:600; margin-bottom:6px' }, 'Recent documents'),
       recent.length && desk ? h('div', {}, recent.map((p) => h('div', { style: 'padding:5px 8px; cursor:pointer; border-bottom:1px solid #39404b', onclick: async () => {
         document.querySelector('.modal-bg .dh button').click();
-        if (!(await confirmDiscard())) return;
         loadFile(await desk.openPath(p));
       } }, h('div', {}, baseName(p)), h('div', { style: 'color:#7f8a99; font-size:11px' }, p)))) : h('div', { style: 'color:#7f8a99' }, 'No recent documents.'));
     dialog('Start', body, [{ label: 'Close', value: true }]);
   }
-  $('tab-start').addEventListener('click', showStart);
-  $('tab-new').addEventListener('click', () => S.fileNew());
-  $('tab-close').addEventListener('click', (e) => { e.stopPropagation(); S.fileNew(); });
 
   // drag & drop
   document.addEventListener('dragover', (e) => e.preventDefault());
@@ -1063,14 +1128,20 @@
     e.preventDefault();
     const file = e.dataTransfer.files[0];
     if (!file) return;
-    if (!(await confirmDiscard())) return;
     if (desk && desk.pathForFile) { const p = desk.pathForFile(file); if (p) { loadFile(await desk.openPath(p)); return; } }
     if (/\.dwg$/i.test(file.name)) { S.alert('Open', 'Opening DWG files requires the desktop app.'); return; }
     loadFile({ name: file.name, text: await file.text() });
   });
 
   // desktop integration
-  S.quit = async () => { if (await confirmDiscard()) { if (desk) desk.reallyClose(); } };
+  S.quit = async () => {
+    for (let i = 0; i < docTabs.length; i++) {
+      if (!tabFile(i).dirty) continue;
+      await switchTab(i);
+      if (!(await confirmDiscard())) return;
+    }
+    if (desk) desk.reallyClose();
+  };
   if (desk) {
     desk.onMenu(async (cmd) => {
       if (cmd === 'APP_CLOSE') { S.quit(); return; }
@@ -1082,6 +1153,7 @@
   }
 
   // ======================================================== boot
+  docTabs.push(tabState());
   buildRibbon();
   buildStatus();
   updateTitle();
@@ -1094,5 +1166,5 @@
   else hello();
   S.msg('Tip: L = LINE, C = CIRCLE, TR = TRIM, M = MOVE. Enter or Space repeats the last command.');
   S.inputEl.focus();
-  window.addEventListener('beforeunload', (e) => { if (!desk && S.file.dirty) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('beforeunload', (e) => { if (!desk && docTabs.some((_, i) => tabFile(i).dirty)) { e.preventDefault(); e.returnValue = ''; } });
 })();

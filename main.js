@@ -158,14 +158,14 @@ ipcMain.handle('plot', async (_e, { svg, widthMm, heightMm, action, path: out })
 
 ipcMain.handle('app-version', () => app.getVersion());
 
-ipcMain.handle('confirm-discard', async () => {
+ipcMain.handle('confirm-discard', async (_e, name) => {
   const r = await dialog.showMessageBox(win, {
     type: 'warning',
     buttons: ['Save', "Don't Save", 'Cancel'],
     defaultId: 0,
     cancelId: 2,
     title: 'DraftForge',
-    message: 'Save changes to the current drawing?',
+    message: name ? `Save changes to ${name}?` : 'Save changes to the current drawing?',
   });
   return ['save', 'discard', 'cancel'][r.response];
 });

@@ -8,7 +8,7 @@ contextBridge.exposeInMainWorld('desktop', {
   writeFile: (path, data, encoding) => ipcRenderer.invoke('write-file', { path, data, encoding }),
   version: () => ipcRenderer.invoke('app-version'),
   plot: (opts) => ipcRenderer.invoke('plot', opts),
-  confirmDiscard: () => ipcRenderer.invoke('confirm-discard'),
+  confirmDiscard: (name) => ipcRenderer.invoke('confirm-discard', name),
   setTitle: (t) => ipcRenderer.send('set-title', t),
   reallyClose: () => ipcRenderer.send('really-close'),
   onMenu: (fn) => ipcRenderer.on('menu', (_e, cmd) => fn(cmd)),

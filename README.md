@@ -33,6 +33,7 @@ code-signed. Choose **More info → Run anyway**.
 - **Angle locks:** type `<30` at any point prompt to lock the next point to 30°; SNAPANG rotates the ortho lock and crosshair
 - **Organisation:** layers (on/off, freeze, lock, colour, linetype, lineweight), indexed and true colours, linetypes, lineweights, Properties palette
 - **Dashed lines:** pick a linetype (Dashed, Hidden, Center, Phantom, Dot, Dashdot) in the Home tab's Properties panel, or type `LT` then `DA` for dashed. With objects selected, the same control or `LT` changes them. `LTSCALE` makes the dashes longer or shorter.
+- **Multiple drawings:** every new or opened drawing gets its own file tab with its own undo history and view. Click a tab or press Ctrl+Tab to switch, × or `CLOSE` to close (asks to save unsaved changes).
 - **Interface:** ribbon, command line with autocomplete and history, dynamic input tooltip, window/crossing selection, right-click menus, undo/redo
 - **Files:** open DWG (R14 through 2018+), DXF and DraftForge `.dfg`; save `.dfg` or DXF R12; export SVG, PNG and PDF
 
