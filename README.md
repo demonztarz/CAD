@@ -32,6 +32,7 @@ code-signed. Choose **More info → Run anyway**.
 - **Object snap tracking (F11):** pause over a snap point to acquire it (green +), then follow the dotted alignment paths; snaps where two paths cross, where a path meets lines, circles, arcs, ellipses or splines, or where it crosses your ortho/polar direction. Line ends extend straight, arc ends extend round their circle
 - **Angle locks:** type `<30` at any point prompt to lock the next point to 30°; SNAPANG rotates the ortho lock and crosshair
 - **Organisation:** layers (on/off, freeze, lock, colour, linetype, lineweight), indexed and true colours, linetypes, lineweights, Properties palette
+- **Dashed lines:** pick a linetype (Dashed, Hidden, Center, Phantom, Dot, Dashdot) in the Home tab's Properties panel, or type `LT` then `DA` for dashed. With objects selected, the same control or `LT` changes them. `LTSCALE` makes the dashes longer or shorter.
 - **Interface:** ribbon, command line with autocomplete and history, dynamic input tooltip, window/crossing selection, right-click menus, undo/redo
 - **Files:** open DWG (R14 through 2018+), DXF and DraftForge `.dfg`; save `.dfg` or DXF R12; export SVG, PNG and PDF
 

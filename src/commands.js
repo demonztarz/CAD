@@ -902,6 +902,25 @@
     const { e } = await S.getEntity('Select object whose layer will become current');
     S.doc.clayer = e.layer; S.msg(`${e.layer} is now the current layer.`); S.emit('doc');
   }, { desc: 'Makes the layer of a selected object current', group: 'Layers', noUndo: true, pickfirst: false });
+  // keyword (capitals = shortcut) -> stored ltype value (null = ByLayer)
+  const LT_KEYS = { Continuous: 'CONTINUOUS', DAshed: 'DASHED', Hidden: 'HIDDEN', CEnter: 'CENTER', Phantom: 'PHANTOM', DOt: 'DOT', DASHDot: 'DASHDOT', BYLayer: null, BYBlock: 'BYBLOCK' };
+  const ltLabel = (t) => (t == null ? 'ByLayer' : t === 'BYBLOCK' ? 'ByBlock' : t.charAt(0) + t.slice(1).toLowerCase());
+  R('LINETYPE', async () => {
+    const sel = S.pickfirst ? [...S.selection] : [];
+    const cur = sel.length ? sel[0].ltype ?? null : S.cur.ltype;
+    const def = Object.keys(LT_KEYS).find((k) => LT_KEYS[k] === cur) || 'BYLayer';
+    const k = await S.getKeyword(sel.length ? `Enter linetype for ${sel.length} object(s)` : 'Enter linetype for new objects', Object.keys(LT_KEYS), def);
+    const t = LT_KEYS[k];
+    if (sel.length) {
+      const map = new Map(sel.map((e) => { const n = { ...e }; if (t == null) delete n.ltype; else n.ltype = t; return [e, [n]]; }));
+      S.replace(map);
+      S.selection = new Set([...map.values()].map((v) => v[0]));
+      S.msg(`Linetype of ${sel.length} object(s) set to ${ltLabel(t)}.`);
+    } else {
+      S.cur.ltype = t;
+      S.msg(`Current linetype: ${ltLabel(t)}. New objects will use it. Adjust dash size with LTSCALE.`);
+    }
+  }, { aliases: ['LT', 'CELTYPE'], desc: 'Sets the linetype (dashed, hidden, center...) for new objects, or for the selected objects', group: 'Settings' });
   const setvar = (key, label, opts = {}) => async () => {
     const v = await S.getNumber(`Enter new value for ${label}`, { def: S.doc.settings[key] });
     if (!(v >= (opts.min ?? 0))) { S.msg('Invalid value.', 'err'); return; }
