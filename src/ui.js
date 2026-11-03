@@ -285,7 +285,7 @@
     ac.classList.toggle('hidden', !list.length);
   }
   function paintAc() { [...ac.children].forEach((c, i) => c.classList.toggle('sel', i === acSel)); }
-  input.addEventListener('input', () => { updateAutocomplete(); S.emit('typed', input.value); updateDyn(); });
+  input.addEventListener('input', () => { updateAutocomplete(); S.emit('typed', input.value); dynLive(); updateDyn(); });
   const isSubmitKey = (k) => k === 'Enter' || (k === ' ' && !(S.input && S.input.kind === 'string' && S.input.allowSpaces));
   input.addEventListener('keydown', (ev) => {
     const k = ev.key;
@@ -300,10 +300,12 @@
       ac.classList.add('hidden');
       if (v.trim()) { history.push(v.trim()); if (history.length > 100) history.shift(); }
       histIdx = -1;
+      if (dynCompose(v)) { updateDyn(); return; }
       S.submit(v);
       updateDyn();
       return;
     }
+    if (k === 'Tab' && dynMode()) { ev.preventDefault(); dynTab(); return; }
     if (k === 'Tab' && !ac.classList.contains('hidden') && acItems[acSel]) { ev.preventDefault(); input.value = acItems[acSel].n; updateAutocomplete(); return; }
     if (k === 'ArrowDown' || k === 'ArrowUp') {
       ev.preventDefault();
@@ -315,10 +317,53 @@
     }
   });
   $('cmd-x').addEventListener('click', () => $('cmdline').classList.toggle('hidden'));
-  S.on('prompt', () => updateDyn());
+  S.on('prompt', () => { dynActive = 0; updateDyn(); });
 
   // ======================================================== dynamic input tooltip
   const dyn = $('dyn');
+  // Two fields while picking a point: distance/angle after a first point, X/Y otherwise.
+  // Typing fills the active field, Tab locks it and moves to the other, Enter places the point.
+  let dynActive = 0;
+  const isNum = (t) => /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t);
+  const dynMode = () => { const inp = S.input; return S.st.dyn && inp && inp.kind === 'point' ? (inp.base ? 'polar' : 'xy') : null; };
+  const dynKeys = () => (dynMode() === 'polar' ? ['dist', 'ang'] : ['x', 'y']);
+  function dynLive() {
+    if (!dynMode()) return;
+    const t = input.value.trim();
+    S.dynLock.live = isNum(t) ? { k: dynKeys()[dynActive], v: +t } : null;
+    S.refreshCursor();
+  }
+  function dynTab() {
+    const t = input.value.trim();
+    if (t && !isNum(t)) { S.msg('Type a number in this field, then press Tab.', 'err'); return; }
+    if (t) S.dynLock[dynKeys()[dynActive]] = +t;
+    S.dynLock.live = null;
+    dynActive = 1 - dynActive;
+    input.value = '';
+    S.emit('typed', '');
+    S.refreshCursor();
+    updateDyn();
+  }
+  function dynCompose(v) {
+    const mode = dynMode();
+    if (!mode) return false;
+    const t = v.trim(), L = S.dynLock;
+    const locked = dynKeys().some((k) => L[k] != null);
+    // nothing locked and typing in the first field: keep classic entry (direct distance, x,y, @dx,dy, keywords)
+    if (!locked && dynActive === 0) return false;
+    if (t && !isNum(t)) return false;
+    if (!t && !locked) return false;
+    if (t) L[dynKeys()[dynActive]] = +t;
+    L.live = null;
+    const inp = S.input;
+    const p = S.effectivePoint(S.mouse.sx, S.mouse.sy, inp.base);
+    const pt = p.p;
+    const echo = mode === 'polar'
+      ? `${S.fmt(G.dist(inp.base, pt))}<${S.fmt(G.deg(G.normAng(G.ang(inp.base, pt))), 2)}`
+      : `${S.fmt(pt.x)},${S.fmt(pt.y)}`;
+    S.submitPoint(pt, echo);
+    return true;
+  }
   function updateDyn() {
     const inp = S.input;
     const show = S.st.dyn && S.mouse.inside && (inp || input.value) && !S.win;
@@ -329,10 +374,21 @@
     const f = $('dyn-fields'); f.innerHTML = '';
     const typed = input.value;
     const p = S.cursorWorld || S.mouse.w;
-    if (inp && inp.base && (inp.kind === 'point' || inp.kind === 'distance' || inp.kind === 'angle')) {
+    const mode = dynMode();
+    if (mode) {
+      const L = S.dynLock, keys = dynKeys();
+      const vals = mode === 'polar'
+        ? [S.fmt(G.dist(inp.base, p)), S.fmt(G.deg(G.normAng(G.ang(inp.base, p))), 0) + '°']
+        : [S.fmt(p.x), S.fmt(p.y)];
+      keys.forEach((k, i) => {
+        const act = i === dynActive, lk = L[k] != null;
+        f.append(h('span', { cls: [act ? 'active' : '', lk ? 'locked' : '', act && typed ? 'typed' : ''].join(' ').trim(), title: act ? 'Type a value - Tab locks it and moves on, Enter places the point' : '' },
+          (lk ? '🔒 ' : '') + (act && typed ? typed : vals[i])));
+      });
+    } else if (inp && inp.base && (inp.kind === 'distance' || inp.kind === 'angle')) {
       const d = G.dist(inp.base, p), a = G.deg(G.normAng(G.ang(inp.base, p)));
       f.append(h('span', { cls: typed ? 'typed' : '' }, typed || S.fmt(d)), h('span', {}, S.fmt(a, 0) + '°'));
-    } else if (inp && (inp.kind === 'point' || inp.kind === 'distance')) {
+    } else if (inp && inp.kind === 'distance') {
       f.append(h('span', { cls: typed ? 'typed' : '' }, typed || S.fmt(p.x)), typed ? null : h('span', {}, S.fmt(p.y)));
     } else if (typed) f.append(h('span', { cls: 'typed' }, typed));
     dyn.style.left = S.mouse.sx + 22 + 'px';
@@ -377,6 +433,7 @@
     if (fk[k]) { ev.preventDefault(); fk[k](); return; }
     if (k === 'Escape') { ev.preventDefault(); closeMenu(); input.value = ''; ac.classList.add('hidden'); S.escape(); if (inField) input.focus(); updateDyn(); return; }
     if (inField) return;
+    if (k === 'Tab' && t !== input && dynMode()) { ev.preventDefault(); input.focus(); dynTab(); return; }
     if (ctrl) {
       const map = { z: 'U', y: 'REDO', c: 'COPYCLIP', x: 'CUTCLIP', v: 'PASTECLIP', a: 'SELECTALL', o: 'OPEN', n: 'NEW', p: 'PLOT' };
       const key = k.toLowerCase();
@@ -768,7 +825,7 @@
       }
     }
     body.append(h('div', { cls: 'h' }, 'Keys & mouse'));
-    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F11', 'Object snap tracking: pause over a snap point to acquire it, then follow the green alignment paths'], ['F12', 'Dynamic input'], ['Ctrl+1', 'Properties palette'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
+    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F11', 'Object snap tracking: pause over a snap point to acquire it, then follow the green alignment paths'], ['F12', 'Dynamic input'], ['Tab', 'Dynamic input: lock the typed length (or X), switch to the angle (or Y) field; Enter places the point'], ['Ctrl+1', 'Properties palette'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
       body.append(h('div', { cls: 'c' }, k), h('div', {}), h('div', { cls: 'd' }, d));
     }
     return dialog('DraftForge Command Reference', body, [{ label: 'Close', primary: true, value: true }]);

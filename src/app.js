@@ -1067,7 +1067,7 @@
   function request(kind, prompt, opts = {}) {
     return new Promise((resolve, reject) => {
       S.input = { kind, prompt, ...opts, resolve, reject };
-      S.oneShot = null;
+      S.oneShot = null; S.dynLock = {};
       S.setPrompt(prompt, opts.keywords, opts.def);
       S.updatePreview();
       S.overlay();
@@ -1076,7 +1076,7 @@
   const finishInput = (value, echo) => {
     const inp = S.input;
     if (!inp) return;
-    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.oneShot = null; S.angleLock = null; S.trackPaths = null; S.trackPt = null;
+    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.oneShot = null; S.angleLock = null; S.trackPaths = null; S.trackPt = null; S.dynLock = {};
     if (echo != null) S.msg(`${inp.prompt}${inp.keywords && inp.keywords.length ? ' [' + inp.keywords.join('/') + ']' : ''}: ${echo}`, 'echo');
     S.overlay();
     inp.resolve(value);
@@ -1084,7 +1084,7 @@
   S.cancelInput = () => {
     const inp = S.input;
     if (!inp) return false;
-    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.win = null; S.angleLock = null;
+    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.win = null; S.angleLock = null; S.dynLock = {};
     S.overlay();
     inp.reject(new Cancel());
     return true;
@@ -1124,6 +1124,14 @@
   };
 
   // text submitted from the command line (or a clicked keyword)
+  // place a point computed by dynamic input (Tab-locked distance/angle or X/Y fields)
+  S.submitPoint = (p, echo) => {
+    if (!S.input || S.input.kind !== 'point') return;
+    inputEl.value = '';
+    S.emit('typed', '');
+    S.lastPoint = p;
+    finishInput(p, echo);
+  };
   S.submit = (raw) => {
     const text = String(raw).trim();
     inputEl.value = '';
@@ -1253,6 +1261,34 @@
     if (key && S.st.otrack) dwellTimer = setTimeout(() => { if (dwellKey === key && S.input) { S.toggleAcquired(sn); dwellKey = ''; } }, 450);
   }
   const wantsPoint = () => S.input && (S.input.kind === 'point' || S.input.kind === 'distance' || S.input.kind === 'angle');
+  // Dynamic input locks (Tab in the cursor tooltip): S.dynLock holds locked values
+  // { dist, ang (degrees), x, y } plus `live` = the value being typed in the active field.
+  S.dynLock = {};
+  const dynVal = (k) => { const L = S.dynLock || {}; return L[k] != null ? L[k] : L.live && L.live.k === k ? L.live.v : null; };
+  const effectiveUnlocked = S.effectivePoint;
+  S.effectivePoint = (sx, sy, base) => {
+    const r = effectiveUnlocked(sx, sy, base);
+    if (!S.input || S.input.kind !== 'point' || !S.st.dyn) return r;
+    if (base) {
+      const dist = dynVal('dist'), ang = dynVal('ang');
+      if (dist == null && ang == null) return r;
+      const v = G.sub(r.p, base);
+      const a = ang != null ? G.rad(ang) : G.len(v) > 1e-12 ? Math.atan2(v.y, v.x) : 0;
+      const u = P(Math.cos(a), Math.sin(a));
+      const d = dist != null ? dist : Math.max(0, G.dot(v, u));
+      S.track = { base, ang: a, dist: d };
+      return { p: G.add(base, G.mul(u, d)) };
+    }
+    const x = dynVal('x'), y = dynVal('y');
+    if (x == null && y == null) return r;
+    return { p: P(x != null ? x : r.p.x, y != null ? y : r.p.y) };
+  };
+  // recompute the cursor point after a lock changes, without waiting for the mouse to move
+  S.refreshCursor = () => {
+    if (!S.mouse.inside) return;
+    const r = ov.getBoundingClientRect();
+    onMove({ clientX: S.mouse.sx + r.left, clientY: S.mouse.sy + r.top });
+  };
   function onMove(ev) {
     const r = ov.getBoundingClientRect();
     const sx = ev.clientX - r.left, sy = ev.clientY - r.top;
