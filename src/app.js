@@ -12,7 +12,7 @@
     blocks: {},
     layouts: [{ name: 'Layout1', paper: 'A3', orient: 'landscape', style: 'monochrome', entities: [], init: false }],
     clayer: '0',
-    settings: { ltscale: 1, textHeight: 2.5, dimHeight: 2.5, dimPrec: 2, prec: 4, insunits: 4 },
+    settings: { ltscale: 1, textHeight: 2.5, dimHeight: 2.5, dimPrec: 2, dimTrimZeros: true, prec: 4, insunits: 4 },
   });
   S.doc = S.newDoc();
   // Paper sizes in mm (landscape: width >= height)
@@ -54,13 +54,14 @@
   // caches keyed on (immutable) entity objects
   let primCache = new WeakMap(), boxCache = new WeakMap(), splineCache = new WeakMap(), dimCache = new WeakMap();
   S.clearCaches = () => { primCache = new WeakMap(); boxCache = new WeakMap(); splineCache = new WeakMap(); dimCache = new WeakMap(); };
-  S.ctx = () => ({ blocks: S.doc.blocks, dimPrec: S.doc.settings.dimPrec ?? 2 });
+  S.dimTrim = () => S.doc.settings.dimTrimZeros !== false;
+  S.ctx = () => ({ blocks: S.doc.blocks, dimPrec: S.doc.settings.dimPrec ?? 2, dimTrim: S.dimTrim() });
   S.prims = (e) => { let p = primCache.get(e); if (!p) { p = G.prims(e, S.ctx()); primCache.set(e, p); } return p; };
   S.bbox = (e) => { let b = boxCache.get(e); if (!b) { b = G.bbox(e, S.ctx()); boxCache.set(e, b); } return b; };
   const splinePts = (e) => { let p = splineCache.get(e); if (!p) { p = G.splinePoints(e); splineCache.set(e, p); } return p; };
   const dimGeo = (e) => {
     let g = dimCache.get(e);
-    if (!g) { g = G.dimGeometry(e, S.doc.settings.dimPrec ?? 2).map((s) => ({ ...s, layer: e.layer, color: e.color, ltype: 'CONTINUOUS', lw: e.lw })); dimCache.set(e, g); }
+    if (!g) { g = G.dimGeometry(e, S.doc.settings.dimPrec ?? 2, S.dimTrim()).map((s) => ({ ...s, layer: e.layer, color: e.color, ltype: 'CONTINUOUS', lw: e.lw })); dimCache.set(e, g); }
     return g;
   };
 

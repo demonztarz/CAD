@@ -202,7 +202,12 @@
     if (s === '-0' || /^-0\.0*$/.test(s)) s = s.slice(1);
     return s;
   }
-  function dimGeometry(e, prec = 2) {
+  // dimension value: `prec` decimals; with trim, trailing zeros are hidden (50.00 -> 50, 12.50 -> 12.5)
+  function fmtDim(v, prec, trim) {
+    const s = fmtNum(v, prec);
+    return trim && s.includes('.') ? s.replace(/\.?0+$/, '') : s;
+  }
+  function dimGeometry(e, prec = 2, trim = true) {
     const h = e.h || 2.5, asz = e.asz || h, gap = h * 0.25, ext = h * 0.5;
     const out = [];
     const arrow = (tip, dir) => {
@@ -220,7 +225,7 @@
     if (e.kind === 'radius' || e.kind === 'diameter') {
       const c = P(e.cx, e.cy), r = e.r, a = ang(c, P(e.lx, e.ly));
       const onC = polar(c, a, r), loc = P(e.lx, e.ly);
-      const val = (e.kind === 'radius' ? 'R' : '⌀') + fmtNum(e.kind === 'radius' ? r : 2 * r, prec);
+      const val = (e.kind === 'radius' ? 'R' : '⌀') + fmtDim(e.kind === 'radius' ? r : 2 * r, prec, trim);
       const start = e.kind === 'diameter' ? polar(c, a + Math.PI, r) : c;
       const far = dist(c, loc) > r ? loc : onC;
       out.push({ type: 'line', x1: start.x, y1: start.y, x2: far.x, y2: far.y });
@@ -236,7 +241,7 @@
       arrow(polar(c, a1, R), P(Math.sin(a1), -Math.cos(a1)));
       arrow(polar(c, a2, R), P(-Math.sin(a2), Math.cos(a2)));
       const am = a1 + s / 2;
-      label(polar(c, am, R), am - Math.PI / 2, fmtNum(deg(s), Math.max(0, prec - 2)) + '°');
+      label(polar(c, am, R), am - Math.PI / 2, fmtDim(deg(s), Math.max(0, prec - 2), trim) + '°');
       return out;
     }
     const p1 = P(e.x1, e.y1), p2 = P(e.x2, e.y2), loc = P(e.lx, e.ly);
@@ -261,7 +266,7 @@
     out.push({ type: 'line', x1: d1.x, y1: d1.y, x2: d2.x, y2: d2.y });
     const dl = sub(d2, d1);
     if (len(dl) > 1e-12) { arrow(d1, mul(dl, -1)); arrow(d2, dl); }
-    label(mid(d1, d2), Math.atan2(dir.y, dir.x), fmtNum(meas, prec));
+    label(mid(d1, d2), Math.atan2(dir.y, dir.x), fmtDim(meas, prec, trim));
     return out;
   }
 
@@ -376,7 +381,7 @@
       case 'text': polyPrims(textCorners(e), true, out); break;
       case 'hatch': for (const l of e.loops) polyPrims(l, true, out); break;
       case 'viewport': polyPrims([P(e.x, e.y), P(e.x + e.w, e.y), P(e.x + e.w, e.y + e.h), P(e.x, e.y + e.h)], true, out); break;
-      case 'dim': for (const s of dimGeometry(e, ctx && ctx.dimPrec)) out.push(...primsOf(s, ctx)); break;
+      case 'dim': for (const s of dimGeometry(e, ctx && ctx.dimPrec, !(ctx && ctx.dimTrim === false))) out.push(...primsOf(s, ctx)); break;
       case 'insert': {
         const blk = ctx && ctx.blocks && ctx.blocks[e.name];
         if (!blk || (ctx.depth || 0) > 12) { out.push({ k: 'L', a: P(e.x, e.y), b: P(e.x, e.y), pt: true }); break; }
@@ -912,7 +917,7 @@
   const api = {
     TAU, EPS, P, add, sub, mul, dot, cross, len, dist, norm, perp, lerp, mid, ang, polar, same, normAng, sweep, angInArc, rad, deg,
     M, ACI, aciFromRgb, bulgeArc, bulgeFromSweep, catmull, nurbs, splinePoints, ellipsePoint, ellipsePoints, isFullEllipse,
-    TEXT, textBox, textCorners, fmtNum, dimGeometry, PATTERNS, hatchLines, hatchSegments, isAttDef,
+    TEXT, textBox, textCorners, fmtNum, fmtDim, dimGeometry, PATTERNS, hatchLines, hatchSegments, isAttDef,
     prims, primsOf, flatPrims, transformPrim, arcPoints, primBox, bbox, closestOnSeg, closestOnPrim, distToPrim, pointInPoly,
     segSeg, lineCircle, circleCircle, primInter, primParam, primAt, primLength, plinePrims, polyPrims,
     plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, filletLines, chamferLines,

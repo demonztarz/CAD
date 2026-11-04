@@ -612,7 +612,7 @@
     if (e.type === 'hatch') return e.loops.map((l) => ({ type: 'pline', closed: true, pts: l.map((p) => ({ x: p.x, y: p.y, b: 0 })), layer: e.layer, ...(e.color !== undefined ? { color: e.color } : {}) }));
     return null;
   }
-  S.dimParts = (e) => G.dimGeometry(e, S.doc.settings.dimPrec ?? 2);
+  S.dimParts = (e) => G.dimGeometry(e, S.doc.settings.dimPrec ?? 2, S.dimTrim());
   R('EXPLODE', async () => {
     const list = await S.getSelection();
     const map = new Map();
@@ -931,6 +931,11 @@
   R('DIMTXT', setvar('dimHeight', 'DIMTXT', { min: 1e-9 }), { aliases: ['DIMSCALE'], desc: 'Sets the dimension text height', group: 'Settings' });
   R('LUPREC', setvar('prec', 'LUPREC', { int: true }), { desc: 'Sets the number of decimal places displayed', group: 'Settings' });
   R('DIMDEC', setvar('dimPrec', 'DIMDEC', { int: true }), { desc: 'Sets dimension decimal places', group: 'Settings' });
+  R('DIMZIN', async () => {
+    const r = await S.getKeyword('Trailing zeros in dimensions (50.00 shown as 50)', ['Hide', 'Show'], S.dimTrim() ? 'Hide' : 'Show');
+    S.mark(); S.doc.settings.dimTrimZeros = r === 'Hide'; S.clearCaches(); S.render(); S.emit('doc');
+    S.msg(r === 'Hide' ? 'Dimensions hide trailing zeros: 50.00 shows as 50, 12.50 as 12.5.' : 'Dimensions show every decimal place set by DIMDEC.');
+  }, { aliases: ['DIMZEROS'], desc: 'Hides or shows trailing zeros in dimension text', group: 'Settings' });
 
   // ---------------------------------------------------------------- EDIT / FILE
   R('U', () => S.undo(), { aliases: ['UNDO'], desc: 'Reverses the most recent operation', group: 'Edit', noUndo: true, pickfirst: false });

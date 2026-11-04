@@ -114,7 +114,23 @@ test('polyline area including a bulge', () => {
 test('linear dimension measures horizontal distance', () => {
   const geo = G.dimGeometry({ type: 'dim', kind: 'horizontal', x1: 0, y1: 0, x2: 30, y2: 10, lx: 15, ly: 20, h: 2.5 }, 2);
   const txt = geo.find((g) => g.type === 'text');
-  assert.strictEqual(txt.text, '30.00');
+  assert.strictEqual(txt.text, '30', 'trailing zeros hidden by default');
+  const kept = G.dimGeometry({ type: 'dim', kind: 'horizontal', x1: 0, y1: 0, x2: 30, y2: 10, lx: 15, ly: 20, h: 2.5 }, 2, false);
+  assert.strictEqual(kept.find((g) => g.type === 'text').text, '30.00');
+});
+
+test('dimension text hides trailing zeros only', () => {
+  assert.strictEqual(G.fmtDim(50, 2, true), '50');
+  assert.strictEqual(G.fmtDim(12.5, 2, true), '12.5');
+  assert.strictEqual(G.fmtDim(12.25, 2, true), '12.25');
+  assert.strictEqual(G.fmtDim(100, 0, true), '100', 'zeros before the decimal point stay');
+  assert.strictEqual(G.fmtDim(1205.004, 2, true), '1205');
+  assert.strictEqual(G.fmtDim(-0.001, 2, true), '0');
+  assert.strictEqual(G.fmtDim(12.5, 2, false), '12.50');
+  const r = G.dimGeometry({ type: 'dim', kind: 'radius', cx: 0, cy: 0, r: 7.5, lx: 20, ly: 0, h: 2.5 }, 2).find((g) => g.type === 'text');
+  assert.strictEqual(r.text, 'R7.5');
+  const a = G.dimGeometry({ type: 'dim', kind: 'angular', cx: 0, cy: 0, a1: 0, a2: Math.PI / 2, lx: 10, ly: 10, h: 2.5 }, 4).find((g) => g.type === 'text');
+  assert.strictEqual(a.text, '90°');
 });
 
 test('NURBS curve passes through clamped end points', () => {

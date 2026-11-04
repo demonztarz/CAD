@@ -563,6 +563,12 @@
       body.append(group('Drawing', [
         row('Objects', ro(S.E.length)), row('Layers', ro(S.doc.layers.length)), row('Blocks', ro(Object.keys(S.doc.blocks).length)),
         setting('Linetype scale', 'ltscale'), setting('Text height', 'textHeight'), setting('Dim text height', 'dimHeight'),
+        (() => {
+          const s = h('select', { title: 'DIMZIN' }, h('option', { value: 'hide' }, 'Hide (50)'), h('option', { value: 'show' }, 'Show (50.00)'));
+          s.value = S.dimTrim() ? 'hide' : 'show';
+          s.addEventListener('change', () => { S.runningName = 'Dim trailing zeros'; S.mark(); S.doc.settings.dimTrimZeros = s.value === 'hide'; S.endOp(); S.clearCaches(); S.render(); S.emit('doc'); });
+          return row('Dim trailing zeros', s);
+        })(),
       ]));
       return;
     }
@@ -627,7 +633,7 @@
           rows.push(num('Position X', (e) => e.x, (e, v) => ({ ...e, x: v })), num('Position Y', (e) => e.y, (e, v) => ({ ...e, y: v })));
           break;
         case 'dim':
-          if (one) { const txt = (G.dimGeometry(one, S.doc.settings.dimPrec).find((g) => g.type === 'text') || {}).text; rows.push(row('Measurement', ro(txt || ''))); }
+          if (one) { const txt = (G.dimGeometry(one, S.doc.settings.dimPrec, S.dimTrim()).find((g) => g.type === 'text') || {}).text; rows.push(row('Measurement', ro(txt || ''))); }
           rows.push(str('Text override', (e) => e.text || '', (e, v) => { const n = { ...e }; if (v) n.text = v; else delete n.text; return n; }),
             num('Text height', (e) => e.h || 2.5, (e, v) => (v > 0 ? { ...e, h: v } : e)));
           break;
@@ -1080,7 +1086,7 @@
           out.push(e.pattern === 'SOLID' ? `<path d="${d}" fill="${css}" fill-rule="evenodd"/>` : `<path d="${d}" fill="${css}" fill-opacity="0.25" fill-rule="evenodd" stroke="${css}" stroke-width="0.5" vector-effect="non-scaling-stroke"/>`);
           break;
         }
-        case 'dim': for (const g of G.dimGeometry(e, S.doc.settings.dimPrec)) emit({ ...g, layer: e.layer, color: e.color }, inh); break;
+        case 'dim': for (const g of G.dimGeometry(e, S.doc.settings.dimPrec, S.dimTrim())) emit({ ...g, layer: e.layer, color: e.color }, inh); break;
         case 'insert': {
           const blk = S.doc.blocks[e.name];
           if (blk) {
