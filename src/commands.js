@@ -959,6 +959,11 @@
     { aliases: ['AI_SELALL'], desc: 'Selects all objects (Ctrl+A)', group: 'Edit', noUndo: true, pickfirst: false });
 
   R('NEW', () => S.fileNew(), { aliases: ['QNEW'], desc: 'Creates a new drawing', group: 'File', noUndo: true, pickfirst: false });
+  R('DISCORD', () => {
+    S.st.discord = S.st.discord === false;
+    S.saveSettings(); S.updateTitle();
+    S.msg(S.st.discord ? '<Discord status on: shows "Working on" the current drawing>' : '<Discord status off>');
+  }, { aliases: ['DISCORDPRESENCE'], desc: 'Turns the Discord "Working on <drawing>" status on or off', group: 'Settings', noUndo: true, pickfirst: false });
   R('CLOSE', () => S.closeTab(), { desc: 'Closes the current drawing (asks to save changes)', group: 'File', noUndo: true, pickfirst: false });
   R('OPEN', () => S.fileOpen(), { desc: 'Opens a DWG, DXF or DraftForge drawing', group: 'File', noUndo: true, pickfirst: false });
   R('QSAVE', () => S.fileSave(false), { aliases: ['SAVE'], desc: 'Saves the current drawing', group: 'File', noUndo: true, pickfirst: false });

@@ -34,6 +34,7 @@ code-signed. Choose **More info → Run anyway**.
 - **Organisation:** layers (on/off, freeze, lock, colour, linetype, lineweight), indexed and true colours, linetypes, lineweights, Properties palette
 - **Dashed lines:** pick a linetype (Dashed, Hidden, Center, Phantom, Dot, Dashdot) in the Home tab's Properties panel, or type `LT` then `DA` for dashed. With objects selected, the same control or `LT` changes them. `LTSCALE` makes the dashes longer or shorter.
 - **Multiple drawings:** every new or opened drawing gets its own file tab with its own undo history and view. Click a tab or press Ctrl+Tab to switch, × or `CLOSE` to close (asks to save unsaved changes).
+- **Discord status:** with Discord running, your profile shows **DraftForge** and "Working on <drawing name>". It needs a Discord application ID in `package.json` (`discordClientId`) or the `DRAFTFORGE_DISCORD_CLIENT_ID` environment variable. Type `DISCORD` to turn the status off or on.
 - **Interface:** ribbon, command line with autocomplete and history, dynamic input tooltip, window/crossing selection, right-click menus, undo/redo
 - **Files:** open DWG (R14 through 2018+), DXF and DraftForge `.dfg`; save `.dfg` or DXF R12; export SVG, PNG and PDF
 

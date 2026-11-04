@@ -35,7 +35,7 @@
   S.selection = new Set();
   S.clipboard = null;
   S.st = {
-    grid: true, snap: false, ortho: false, polar: true, osnap: true, otrack: true, lwt: false, dyn: true,
+    grid: true, snap: false, ortho: false, polar: true, osnap: true, otrack: true, lwt: false, dyn: true, discord: true,
     osmodes: new Set(['end', 'mid', 'cen', 'int', 'qua', 'nod', 'ins', 'per']),
     snapSpacing: 10, gridSpacing: 10, polarInc: 45, pickbox: 5, aperture: 10, cursorSize: 5,
   };

@@ -1,14 +1,15 @@
 {
   "name": "draftforge",
   "productName": "DraftForge",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "DraftForge: a 2D CAD drafting application with a command-line workflow that opens DWG and DXF drawings.",
   "main": "main.js",
   "author": "DraftForge",
   "license": "GPL-3.0-or-later",
+  "discordClientId": "",
   "scripts": {
     "start": "electron .",
-    "test": "node test/geometry.test.js && node test/import.test.js",
+    "test": "node test/geometry.test.js && node test/import.test.js && node test/discord.test.js",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win portable",
     "dist:linux": "electron-builder --linux AppImage",
@@ -28,6 +29,7 @@
       "main.js",
       "preload.js",
       "dwgload.js",
+      "discordpresence.js",
       "src/**/*",
       "build/icon.png",
       "LICENSE"

@@ -2,6 +2,13 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 const fs = require('fs');
 const path = require('path');
 const { loadDwg } = require('./dwgload.js');
+const { Presence } = require('./discordpresence.js');
+const pkg = require('./package.json');
+
+// Discord Rich Presence: the status shows the Discord application's name (DraftForge) and
+// "Working on <file>". Needs the application ID from the Discord Developer Portal.
+const presence = new Presence(process.env.DRAFTFORGE_DISCORD_CLIENT_ID || pkg.discordClientId || '');
+const startedAt = Math.floor(Date.now() / 1000);
 
 let win;
 let forceClose = false;
@@ -89,6 +96,7 @@ function createWindow(fileToOpen) {
       sandbox: true,
     },
   });
+  win.on('page-title-updated', (e) => e.preventDefault());
   win.loadFile(path.join(__dirname, 'src', 'index.html'));
   win.webContents.on('did-finish-load', async () => {
     if (fileToOpen) win.webContents.send('file-opened', await readDrawing(fileToOpen));
@@ -174,6 +182,17 @@ ipcMain.on('set-title', (_e, title) => {
   if (win) win.setTitle(title);
 });
 
+ipcMain.on('presence', (_e, info) => {
+  if (!info || !info.file) { presence.set(null); return; }
+  const clip = (s) => (s.length > 128 ? s.slice(0, 127) + '\u2026' : s);
+  presence.set({
+    details: clip(`Working on ${info.file}`),
+    ...(info.count > 1 ? { state: `${info.count} drawings open` } : {}),
+    timestamps: { start: startedAt },
+    ...(pkg.discordLargeImage ? { assets: { large_image: pkg.discordLargeImage, large_text: 'DraftForge' } } : {}),
+  });
+});
+
 ipcMain.on('really-close', () => {
   forceClose = true;
   if (win) win.close();
@@ -201,6 +220,8 @@ if (!app.requestSingleInstanceLock()) {
     });
   });
 }
+
+app.on('before-quit', () => presence.stop());
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

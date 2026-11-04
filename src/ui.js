@@ -192,9 +192,12 @@
     const n = S.file.name + (S.file.dirty ? '*' : '');
     $('title').innerHTML = `DraftForge ${esc(S.version || '')} &nbsp; <b>${esc(n)}</b>`;
     renderTabs();
-    document.title = `${n} - DraftForge`;
+    // program name first, so anything that reads the window title (e.g. Discord) sees DraftForge
+    document.title = `DraftForge - ${n}`;
     if (desk) desk.setTitle(`DraftForge - ${n}`);
+    if (desk && desk.presence) desk.presence(S.st.discord !== false ? { file: S.file.name, count: docTabs.length } : null);
   }
+  S.updateTitle = updateTitle;
   S.on('title', updateTitle);
   $('appbtn').addEventListener('click', (ev) => {
     ev.stopPropagation();
