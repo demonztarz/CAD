@@ -36,7 +36,8 @@
     Home: [
       { title: 'Draw', items: [big('line', 'Line', 'LINE'), big('pline', 'Polyline', 'PLINE'), big('circle', 'Circle', 'CIRCLE'), big('arc', 'Arc', 'ARC'),
         col(sm('rect', 'Rectangle', 'RECTANG'), sm('polygon', 'Polygon', 'POLYGON'), sm('ellipse', 'Ellipse', 'ELLIPSE')),
-        col(sm('hatch', 'Hatch', 'HATCH'), sm('spline', 'Spline', 'SPLINE'), sm('point', 'Point', 'POINT'))] },
+        col(sm('hatch', 'Hatch', 'HATCH'), sm('spline', 'Spline', 'SPLINE'), sm('point', 'Point', 'POINT')),
+        col(sm('breakline', 'Break Line', 'BREAKLINE'))] },
       { title: 'Modify', items: [
         col(sm('move', 'Move', 'MOVE'), sm('copy', 'Copy', 'COPY'), sm('stretch', 'Stretch', 'STRETCH')),
         col(sm('rotate', 'Rotate', 'ROTATE'), sm('mirror', 'Mirror', 'MIRROR'), sm('scale', 'Scale', 'SCALE')),

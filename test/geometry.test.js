@@ -119,6 +119,17 @@ test('linear dimension measures horizontal distance', () => {
   assert.strictEqual(kept.find((g) => g.type === 'text').text, '30.00');
 });
 
+test('break line: zigzag centred on the line, kept inside it, with extension', () => {
+  const pts = G.breaklinePts({ x: 0, y: 0 }, { x: 80, y: 0 }, { x: 40, y: 5 }, 12, 0);
+  assert.strictEqual(pts.length, 6);
+  nearP(pts[0], 0, 0); nearP(pts[1], 34, 0); nearP(pts[2], 38, 6); nearP(pts[3], 42, -6); nearP(pts[4], 46, 0); nearP(pts[5], 80, 0);
+  const edge = G.breaklinePts({ x: 0, y: 0 }, { x: 80, y: 0 }, { x: 79, y: 0 }, 12, 0);
+  nearP(edge[4], 80, 0); // symbol pushed back inside the line
+  const ext = G.breaklinePts({ x: 0, y: 0 }, { x: 0, y: 50 }, { x: 0, y: 25 }, 10, 2);
+  nearP(ext[0], 0, -2); nearP(ext[5], 0, 52); nearP(ext[2], -5, 25 - 10 / 6);
+  assert.strictEqual(G.breaklinePts({ x: 1, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 1 }, 5), null);
+});
+
 test('dimension text hides trailing zeros only', () => {
   assert.strictEqual(G.fmtDim(50, 2, true), '50');
   assert.strictEqual(G.fmtDim(12.5, 2, true), '12.5');

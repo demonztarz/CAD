@@ -81,6 +81,32 @@
     S.add({ type: 'pline', closed: true, pts: rectPts(a, b) });
   }, { aliases: ['REC', 'RECTANGLE'], desc: 'Creates a rectangular polyline', group: 'Draw' });
 
+  R('BREAKLINE', async () => {
+    const st = S.doc.settings;
+    let a;
+    for (;;) {
+      a = await S.getPoint('Specify first point of break line or', { keywords: ['Size', 'Extension'] });
+      if (a === 'Size') {
+        const v = await S.getNumber('Enter break symbol size (0 = automatic, 1/8 of the line length)', { def: st.breakSize || 0 });
+        if (v >= 0) { S.mark(); st.breakSize = v; } else S.msg('Size cannot be negative.', 'err');
+      } else if (a === 'Extension') {
+        const v = await S.getNumber('Enter distance the line extends past each point', { def: st.breakExt || 0 });
+        if (v >= 0) { S.mark(); st.breakExt = v; } else S.msg('Extension cannot be negative.', 'err');
+      } else break;
+    }
+    S.lastPoint = a;
+    const make = (p, q, m) => {
+      const pts = G.breaklinePts(p, q, m || G.mid(p, q), st.breakSize > 0 ? st.breakSize : G.dist(p, q) / 8, st.breakExt || 0);
+      return pts ? { type: 'pline', closed: false, pts: pts.map((v) => ({ ...v, b: 0 })) } : null;
+    };
+    const preview = (p, q, m) => { const e = make(p, q, m); return e ? [e] : []; };
+    const b = await S.getPoint('Specify second point of break line', { base: a, noRubber: true, preview: (p) => preview(a, p) });
+    if (G.dist(a, b) < 1e-9) { S.msg('The two points are the same.', 'err'); return; }
+    S.lastPoint = b;
+    const m = await S.getPoint('Specify location for break symbol', { def: 'Midpoint', allowNone: true, preview: (p) => preview(a, b, p) });
+    S.add(make(a, b, m));
+  }, { aliases: ['BRKLINE'], desc: 'Draws a line with a zigzag break symbol, showing the object continues', group: 'Draw' });
+
   R('POLYGON', async () => {
     let n = await S.getNumber('Enter number of sides', { def: S.polySides || 4 });
     n = Math.max(3, Math.min(1024, Math.round(n))); S.polySides = n;

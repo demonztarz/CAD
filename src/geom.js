@@ -202,6 +202,24 @@
     if (s === '-0' || /^-0\.0*$/.test(s)) s = s.slice(1);
     return s;
   }
+  // Break line from a to b: straight runs with a zigzag symbol of width s centred at the projection
+  // of m on the line (kept inside it), extended by ext past both ends. Returns the polyline points.
+  function breaklinePts(a, b, m, s, ext = 0) {
+    const L = dist(a, b);
+    if (!(L > 1e-12)) return null;
+    const u = mul(sub(b, a), 1 / L), n = perp(u);
+    const w = Math.min(s, L), half = w / 2;
+    const t = Math.max(half, Math.min(L - half, dot(sub(m, a), u)));
+    const c = add(a, mul(u, t));
+    return [
+      sub(a, mul(u, ext)),
+      sub(c, mul(u, half)),
+      add(sub(c, mul(u, w / 6)), mul(n, half)),
+      sub(add(c, mul(u, w / 6)), mul(n, half)),
+      add(c, mul(u, half)),
+      add(b, mul(u, ext)),
+    ];
+  }
   // dimension value: `prec` decimals; with trim, trailing zeros are hidden (50.00 -> 50, 12.50 -> 12.5)
   function fmtDim(v, prec, trim) {
     const s = fmtNum(v, prec);
@@ -917,7 +935,7 @@
   const api = {
     TAU, EPS, P, add, sub, mul, dot, cross, len, dist, norm, perp, lerp, mid, ang, polar, same, normAng, sweep, angInArc, rad, deg,
     M, ACI, aciFromRgb, bulgeArc, bulgeFromSweep, catmull, nurbs, splinePoints, ellipsePoint, ellipsePoints, isFullEllipse,
-    TEXT, textBox, textCorners, fmtNum, fmtDim, dimGeometry, PATTERNS, hatchLines, hatchSegments, isAttDef,
+    TEXT, textBox, textCorners, fmtNum, fmtDim, dimGeometry, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
     prims, primsOf, flatPrims, transformPrim, arcPoints, primBox, bbox, closestOnSeg, closestOnPrim, distToPrim, pointInPoly,
     segSeg, lineCircle, circleCircle, primInter, primParam, primAt, primLength, plinePrims, polyPrims,
     plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, filletLines, chamferLines,

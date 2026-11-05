@@ -65,6 +65,7 @@
     redo: s('M15 6 L20 11 L15 16', W) + s('M20 11 H10 a6 6 0 0 0 0 12 H13', W),
     exportf: s('M5 4 H14 L19 9 V20 H5 Z', W, 1.2) + s('M9 14 H21 M17 10 L21 14 L17 18', Gn),
     plot: s('M6 9 V3 H18 V9', W) + s('M3 9 H21 V17 H3 Z', W) + s('M7 14 H17 V21 H7 Z', B),
+    breakline: s('M2 12 H9 L10.5 7 L13.5 17 L15 12 H22', B, 1.6),
     cmdline: s('M3 5 H21 V19 H3 Z', W, 1.2) + s('M6 10 L9 12.5 L6 15', Gn, 1.6) + s('M11 15.5 H16', B, 1.6),
     help: '<circle cx="12" cy="12" r="9" fill="none" stroke="#7fb6ff" stroke-width="1.6"/>' + txt(8.5, 16.5, '?', W, 12),
     snapgrid: [5, 12, 19].map((x) => [5, 12, 19].map((y) => dot(x, y, W, 1.2)).join('')).join(''),
