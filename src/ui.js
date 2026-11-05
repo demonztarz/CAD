@@ -62,7 +62,7 @@
     ],
     View: [
       { title: 'Navigate', items: [big('zoomext', 'Extents', () => S.zoomExtents()), big('zoomwin', 'Window', 'ZOOM'), big('pan', 'Pan', 'PAN'), big('regen', 'Regen', 'REGEN')] },
-      { title: 'Palettes', items: [big('props', 'Properties', () => togglePalette()), big('layers', 'Layers', 'LAYER'), big('help', 'Commands', 'HELP')] },
+      { title: 'Palettes', items: [big('props', 'Properties', () => togglePalette()), big('layers', 'Layers', 'LAYER'), big('cmdline', 'Command Line', () => S.showCommandLine()), big('help', 'Commands', 'HELP')] },
       { title: 'Display', items: [col(sm('gridicon', 'Grid', 'GRID'), sm('lwt', 'Lineweight', 'LWDISPLAY'), sm('osnap', 'Object Snaps', 'OSNAP'))] },
     ],
     Output: [
@@ -322,7 +322,13 @@
       input.value = histIdx < 0 ? '' : history[histIdx];
     }
   });
-  $('cmd-x').addEventListener('click', () => $('cmdline').classList.toggle('hidden'));
+  // the command line can be hidden (x button, Ctrl+9); typing or the View tab button brings it back
+  S.showCommandLine = (on) => {
+    const hide = on === undefined ? !$('cmdline').classList.contains('hidden') : !on;
+    $('cmdline').classList.toggle('hidden', hide);
+    if (!hide) input.focus();
+  };
+  $('cmd-x').addEventListener('click', () => S.showCommandLine(false));
   S.on('prompt', () => { dynActive = 0; updateDyn(); });
 
   // ======================================================== dynamic input tooltip
@@ -451,7 +457,7 @@
       if (key === '1') { ev.preventDefault(); togglePalette(); return; }
       if (key === 'tab') { ev.preventDefault(); if (docTabs.length > 1) switchTab((curTab + (ev.shiftKey ? -1 : 1) + docTabs.length) % docTabs.length); return; }
       if (key === 'e') { ev.preventDefault(); S.cycleIsoplane(); return; }
-      if (key === '9') { ev.preventDefault(); $('cmdline').classList.toggle('hidden'); return; }
+      if (key === '9') { ev.preventDefault(); S.showCommandLine(); return; }
       if (map[key] && !(t === input && input.value && (key === 'c' || key === 'v' || key === 'x' || key === 'a'))) {
         ev.preventDefault();
         if (key === 'z' && S.input) { S.cancelInput(); setTimeout(() => S.undo(), 0); return; }
@@ -464,7 +470,10 @@
       // focus was elsewhere (e.g. after clicking the ribbon): route Enter/Space to the command line
       ev.preventDefault(); input.focus(); input.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: false })); return;
     }
-    if (t !== input && k.length === 1 && !ev.altKey) input.focus();
+    if (t !== input && k.length === 1 && !ev.altKey) {
+      if ($('cmdline').classList.contains('hidden')) S.showCommandLine(true); // typing reopens it
+      input.focus();
+    }
   });
 
   // ======================================================== properties palette
@@ -842,7 +851,7 @@
       }
     }
     body.append(h('div', { cls: 'h' }, 'Keys & mouse'));
-    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F11', 'Object snap tracking: pause over a snap point to acquire it, then follow the green alignment paths'], ['F12', 'Dynamic input'], ['FROM', 'At a point prompt: pick a base point, then type an offset such as @20,10 or @15<30'], ['Tracking + distance', 'Pause on a snap point to acquire it (F11), move along the green line and type a distance: it is measured from that point'], ['Tab', 'Dynamic input: lock the typed length (or X), switch to the angle (or Y) field; Enter places the point'], ['Ctrl+1', 'Properties palette'], ['Ctrl+Tab', 'Next open drawing (Ctrl+Shift+Tab: previous)'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
+    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F11', 'Object snap tracking: pause over a snap point to acquire it, then follow the green alignment paths'], ['F12', 'Dynamic input'], ['FROM', 'At a point prompt: pick a base point, then type an offset such as @20,10 or @15<30'], ['Tracking + distance', 'Pause on a snap point to acquire it (F11), move along the green line and type a distance: it is measured from that point'], ['Tab', 'Dynamic input: lock the typed length (or X), switch to the angle (or Y) field; Enter places the point'], ['Ctrl+1', 'Properties palette'], ['Ctrl+9', 'Show/hide the command line (typing also brings it back)'], ['Ctrl+Tab', 'Next open drawing (Ctrl+Shift+Tab: previous)'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
       body.append(h('div', { cls: 'c' }, k), h('div', {}), h('div', { cls: 'd' }, d));
     }
     return dialog('DraftForge Command Reference', body, [{ label: 'Close', primary: true, value: true }]);
