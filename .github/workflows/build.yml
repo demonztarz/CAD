@@ -54,7 +54,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - uses: actions/upload-artifact@v4
         with:
-          name: DraftForge-${{ runner.os }}
+          name: DraftForgeCAD-${{ runner.os }}
           path: ${{ matrix.files }}
           if-no-files-found: error
 

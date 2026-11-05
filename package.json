@@ -1,10 +1,10 @@
 {
   "name": "draftforge",
-  "productName": "DraftForge",
-  "version": "1.2.7",
-  "description": "DraftForge: a 2D CAD drafting application with a command-line workflow that opens DWG and DXF drawings.",
+  "productName": "DraftForgeCAD",
+  "version": "1.2.8",
+  "description": "DraftForgeCAD: a 2D CAD drafting application with a command-line workflow that opens DWG and DXF drawings.",
   "main": "main.js",
-  "author": "DraftForge",
+  "author": "DraftForgeCAD",
   "license": "GPL-3.0-or-later",
   "discordClientId": "",
   "scripts": {
@@ -23,8 +23,8 @@
   },
   "build": {
     "appId": "app.draftforge.cad",
-    "productName": "DraftForge",
-    "artifactName": "DraftForge-${version}-${os}-${arch}.${ext}",
+    "productName": "DraftForgeCAD",
+    "artifactName": "DraftForgeCAD-${version}-${os}-${arch}.${ext}",
     "files": [
       "main.js",
       "preload.js",
@@ -51,7 +51,7 @@
       },
       {
         "ext": "dfg",
-        "name": "DraftForge Drawing",
+        "name": "DraftForgeCAD Drawing",
         "role": "Editor"
       }
     ],
@@ -63,12 +63,12 @@
       "icon": "build/icon.png"
     },
     "portable": {
-      "artifactName": "DraftForge-${version}-portable.exe"
+      "artifactName": "DraftForgeCAD-${version}-portable.exe"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "DraftForge-${version}-setup.exe",
+      "artifactName": "DraftForgeCAD-${version}-setup.exe",
       "license": "LICENSE"
     },
     "mac": {

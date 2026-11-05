@@ -1,4 +1,4 @@
-/* DraftForge geometry kernel: pure functions shared by the app, importers and tests. */
+/* DraftForgeCAD geometry kernel: pure functions shared by the app, importers and tests. */
 (function (root) {
   'use strict';
   const TAU = Math.PI * 2;

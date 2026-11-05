@@ -1,4 +1,4 @@
-/* DraftForge user interface: ribbon, command line, status bar, palettes, dialogs and file handling. */
+/* DraftForgeCAD user interface: ribbon, command line, status bar, palettes, dialogs and file handling. */
 (function () {
   'use strict';
   const S = window.App;
@@ -191,11 +191,11 @@
   let curTab = 0;
   function updateTitle() {
     const n = S.file.name + (S.file.dirty ? '*' : '');
-    $('title').innerHTML = `DraftForge ${esc(S.version || '')} &nbsp; <b>${esc(n)}</b>`;
+    $('title').innerHTML = `DraftForgeCAD ${esc(S.version || '')} &nbsp; <b>${esc(n)}</b>`;
     renderTabs();
-    // program name first, so anything that reads the window title (e.g. Discord) sees DraftForge
-    document.title = `DraftForge - ${n}`;
-    if (desk) desk.setTitle(`DraftForge - ${n}`);
+    // program name first, so anything that reads the window title (e.g. Discord) sees DraftForgeCAD
+    document.title = `DraftForgeCAD - ${n}`;
+    if (desk) desk.setTitle(`DraftForgeCAD - ${n}`);
     if (desk && desk.presence) desk.presence(S.st.discord !== false ? { file: S.file.name, count: docTabs.length } : null);
   }
   S.updateTitle = updateTitle;
@@ -214,7 +214,7 @@
       { label: 'Export PNG...', icon: 'plot', act: 'PNGOUT' },
       '-',
       { label: 'Command Reference', key: 'F1', icon: 'help', act: 'HELP' },
-      ...(desk ? [{ label: 'Exit DraftForge', icon: 'erase', act: () => S.quit() }] : []),
+      ...(desk ? [{ label: 'Exit DraftForgeCAD', icon: 'erase', act: () => S.quit() }] : []),
     ], 'appmenu');
   });
   $('cmdsearch').addEventListener('keydown', (ev) => {
@@ -855,7 +855,7 @@
     for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F11', 'Object snap tracking: pause over a snap point to acquire it, then follow the green alignment paths'], ['F12', 'Dynamic input'], ['FROM', 'At a point prompt: pick a base point, then type an offset such as @20,10 or @15<30'], ['Tracking + distance', 'Pause on a snap point to acquire it (F11), move along the green line and type a distance: it is measured from that point'], ['Tab', 'Dynamic input: lock the typed length (or X), switch to the angle (or Y) field; Enter places the point'], ['Ctrl+1', 'Properties palette'], ['Ctrl+9', 'Show/hide the command line (typing also brings it back)'], ['Ctrl+Tab', 'Next open drawing (Ctrl+Shift+Tab: previous)'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
       body.append(h('div', { cls: 'c' }, k), h('div', {}), h('div', { cls: 'd' }, d));
     }
-    return dialog('DraftForge Command Reference', body, [{ label: 'Close', primary: true, value: true }]);
+    return dialog('DraftForgeCAD Command Reference', body, [{ label: 'Close', primary: true, value: true }]);
   };
 
   // ======================================================== files
@@ -891,7 +891,7 @@
       if (r === 'save') return S.fileSave(false);
       return true;
     }
-    const v = await dialog('DraftForge', h('div', {}, `Save changes to ${S.file.name}?`), [{ label: 'Save', primary: true, value: 'save' }, { label: "Don't Save", value: 'discard' }, { label: 'Cancel', value: 'cancel' }], { cancelValue: 'cancel' });
+    const v = await dialog('DraftForgeCAD', h('div', {}, `Save changes to ${S.file.name}?`), [{ label: 'Save', primary: true, value: 'save' }, { label: "Don't Save", value: 'discard' }, { label: 'Cancel', value: 'cancel' }], { cancelValue: 'cancel' });
     if (v === 'cancel') return false;
     if (v === 'save') return S.fileSave(false);
     return true;
@@ -976,7 +976,7 @@
       else if (kind === 'dxf') res = DXF.readDxf(f.text);
       else {
         const d = JSON.parse(f.text);
-        if (!d || !Array.isArray(d.entities)) throw new Error('Not a DraftForge drawing.');
+        if (!d || !Array.isArray(d.entities)) throw new Error('Not a DraftForgeCAD drawing.');
         res = { doc: d };
       }
       const name = baseName(f.path || f.name || 'Drawing');
@@ -1037,7 +1037,7 @@
         S.setDirty(false); S.msg(`Saved ${S.file.name}`); return true;
       }
       if (!saveAs && S.file.kind === 'dwg') S.msg('Saving back to DWG is not supported; choose DXF (opens in any CAD program) or DFG.');
-      const path = await writeOut('save', stem() + '.dfg', [{ name: 'DraftForge Drawing (*.dfg)', extensions: ['dfg'] }, { name: 'DXF R12 (*.dxf)', extensions: ['dxf'] }],
+      const path = await writeOut('save', stem() + '.dfg', [{ name: 'DraftForgeCAD Drawing (*.dfg)', extensions: ['dfg'] }, { name: 'DXF R12 (*.dxf)', extensions: ['dxf'] }],
         (p) => (/\.dxf$/i.test(p) ? DXF.writeDxf(S.doc) : serialize()));
       if (!path) return false;
       S.file = { ...S.file, path: desk ? path : null, name: baseName(path), kind: /\.dxf$/i.test(path) ? 'dxf' : 'dfg' };
@@ -1132,7 +1132,7 @@
     let recent = [];
     try { recent = JSON.parse(localStorage.getItem(recentKey) || '[]'); } catch (_) { /* ignore */ }
     const body = h('div', { style: 'width:560px' },
-      h('div', { style: 'font-size:22px; font-weight:700; margin-bottom:4px' }, 'DraftForge'),
+      h('div', { style: 'font-size:22px; font-weight:700; margin-bottom:4px' }, 'DraftForgeCAD'),
       h('div', { style: 'color:#a3adba; margin-bottom:16px' }, '2D drafting with a command-line workflow. Opens DWG and DXF drawings.'),
       h('div', { style: 'display:flex; gap:10px; margin-bottom:18px' },
         h('button', { cls: 'btn primary', onclick: () => { document.querySelector('.modal-bg .dh button').click(); S.fileNew(); } }, 'New Drawing'),
@@ -1184,7 +1184,7 @@
   S.view = { cx: 100, cy: 60, scale: Math.max(1, Math.min(S.size().W / 260, S.size().H / 160)) };
   S.render();
   S.version = '';
-  const hello = () => S.msg(`DraftForge ${S.version}  -  type a command or click a tool. F1 shows every command and alias.`);
+  const hello = () => S.msg(`DraftForgeCAD ${S.version}  -  type a command or click a tool. F1 shows every command and alias.`);
   if (desk && desk.version) desk.version().then((v) => { S.version = v; updateTitle(); hello(); }).catch(hello);
   else hello();
   S.msg('Tip: L = LINE, C = CIRCLE, TR = TRIM, M = MOVE. Enter or Space repeats the last command.');

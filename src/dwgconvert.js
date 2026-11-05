@@ -1,4 +1,4 @@
-/* Converts a LibreDWG DwgDatabase (from @mlightcad/libredwg-web) into a DraftForge document. */
+/* Converts a LibreDWG DwgDatabase (from @mlightcad/libredwg-web) into a DraftForgeCAD document. */
 (function (root) {
   'use strict';
   const TAU = Math.PI * 2;

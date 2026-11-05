@@ -1,4 +1,4 @@
-/* DraftForge core: document, view, rendering, input, snapping, selection, undo. */
+/* DraftForgeCAD core: document, view, rendering, input, snapping, selection, undo. */
 (function () {
   'use strict';
   const { P, M } = G;

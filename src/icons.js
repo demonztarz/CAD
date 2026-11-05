@@ -1,4 +1,4 @@
-/* DraftForge icon set (original artwork). 24x24 SVG bodies. */
+/* DraftForgeCAD icon set (original artwork). 24x24 SVG bodies. */
 (function () {
   const B = '#7fb6ff', Y = '#ffd166', R = '#ff6b6b', Gn = '#7ddc8a', W = '#d9dee6', O = '#ffa94d';
   const s = (d, c = B, w = 1.6) => `<path d="${d}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;

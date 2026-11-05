@@ -5,10 +5,13 @@ const { loadDwg } = require('./dwgload.js');
 const { Presence } = require('./discordpresence.js');
 const pkg = require('./package.json');
 
-// Discord Rich Presence: the status shows the Discord application's name (DraftForge) and
+// Discord Rich Presence: the status shows the Discord application's name (DraftForgeCAD) and
 // "Working on <file>". Needs the application ID from the Discord Developer Portal.
 const presence = new Presence(process.env.DRAFTFORGE_DISCORD_CLIENT_ID || pkg.discordClientId || '');
 const startedAt = Math.floor(Date.now() / 1000);
+
+// Keep using the settings folder from before the rename to DraftForgeCAD (settings, recent files)
+app.setPath('userData', path.join(app.getPath('appData'), 'DraftForge'));
 
 let win;
 let forceClose = false;
@@ -17,7 +20,7 @@ const DRAWING_FILTERS = [
   { name: 'All Drawings (*.dwg, *.dxf, *.dfg)', extensions: ['dwg', 'dxf', 'dfg'] },
   { name: 'DWG Drawing (*.dwg)', extensions: ['dwg'] },
   { name: 'DXF Drawing (*.dxf)', extensions: ['dxf'] },
-  { name: 'DraftForge Drawing (*.dfg)', extensions: ['dfg'] },
+  { name: 'DraftForgeCAD Drawing (*.dfg)', extensions: ['dfg'] },
 ];
 
 function send(cmd) {
@@ -86,7 +89,7 @@ function createWindow(fileToOpen) {
     minWidth: 960,
     minHeight: 620,
     backgroundColor: '#1b1f25',
-    title: 'DraftForge',
+    title: 'DraftForgeCAD',
     autoHideMenuBar: true,
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
@@ -172,7 +175,7 @@ ipcMain.handle('confirm-discard', async (_e, name) => {
     buttons: ['Save', "Don't Save", 'Cancel'],
     defaultId: 0,
     cancelId: 2,
-    title: 'DraftForge',
+    title: 'DraftForgeCAD',
     message: name ? `Save changes to ${name}?` : 'Save changes to the current drawing?',
   });
   return ['save', 'discard', 'cancel'][r.response];
@@ -189,7 +192,7 @@ ipcMain.on('presence', (_e, info) => {
     details: clip(`Working on ${info.file}`),
     ...(info.count > 1 ? { state: `${info.count} drawings open` } : {}),
     timestamps: { start: startedAt },
-    ...(pkg.discordLargeImage ? { assets: { large_image: pkg.discordLargeImage, large_text: 'DraftForge' } } : {}),
+    ...(pkg.discordLargeImage ? { assets: { large_image: pkg.discordLargeImage, large_text: 'DraftForgeCAD' } } : {}),
   });
 });
 

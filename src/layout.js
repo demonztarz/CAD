@@ -1,4 +1,4 @@
-/* DraftForge layouts: paper space, viewports, title blocks, attributes, plotting and PDF output. */
+/* DraftForgeCAD layouts: paper space, viewports, title blocks, attributes, plotting and PDF output. */
 (function () {
   'use strict';
   const S = window.App;

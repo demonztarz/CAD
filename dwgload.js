@@ -1,4 +1,4 @@
-/* Main-process DWG reader: LibreDWG (WebAssembly) -> DraftForge document. */
+/* Main-process DWG reader: LibreDWG (WebAssembly) -> DraftForgeCAD document. */
 const path = require('path');
 const { convertDatabase } = require('./src/dwgconvert.js');
 

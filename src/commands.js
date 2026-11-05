@@ -1,4 +1,4 @@
-/* DraftForge command set. Each command is an async function driving App prompts. */
+/* DraftForgeCAD command set. Each command is an async function driving App prompts. */
 (function () {
   'use strict';
   const S = window.App;
@@ -996,12 +996,12 @@
     S.msg(S.st.discord ? '<Discord status on: shows "Working on" the current drawing>' : '<Discord status off>');
   }, { aliases: ['DISCORDPRESENCE'], desc: 'Turns the Discord "Working on <drawing>" status on or off', group: 'Settings', noUndo: true, pickfirst: false });
   R('CLOSE', () => S.closeTab(), { desc: 'Closes the current drawing (asks to save changes)', group: 'File', noUndo: true, pickfirst: false });
-  R('OPEN', () => S.fileOpen(), { desc: 'Opens a DWG, DXF or DraftForge drawing', group: 'File', noUndo: true, pickfirst: false });
+  R('OPEN', () => S.fileOpen(), { desc: 'Opens a DWG, DXF or DraftForgeCAD drawing', group: 'File', noUndo: true, pickfirst: false });
   R('QSAVE', () => S.fileSave(false), { aliases: ['SAVE'], desc: 'Saves the current drawing', group: 'File', noUndo: true, pickfirst: false });
   R('SAVEAS', () => S.fileSave(true), { desc: 'Saves the drawing under a new name or format', group: 'File', noUndo: true, pickfirst: false });
   R('DXFOUT', () => S.exportFile('dxf'), { desc: 'Exports the drawing to DXF', group: 'File', noUndo: true, pickfirst: false });
   R('SVGOUT', () => S.exportFile('svg'), { desc: 'Exports the drawing to SVG', group: 'File', noUndo: true, pickfirst: false });
   R('PNGOUT', () => S.exportFile('png'), { aliases: ['JPGOUT'], desc: 'Exports the current view as a PNG image', group: 'File', noUndo: true, pickfirst: false });
   R('HELP', () => S.showHelp(), { aliases: ['?'], desc: 'Shows the command reference (F1)', group: 'Help', noUndo: true, pickfirst: false });
-  R('QUIT', () => S.quit && S.quit(), { aliases: ['EXIT'], desc: 'Exits DraftForge', group: 'File', noUndo: true, pickfirst: false });
+  R('QUIT', () => S.quit && S.quit(), { aliases: ['EXIT'], desc: 'Exits DraftForgeCAD', group: 'File', noUndo: true, pickfirst: false });
 })();

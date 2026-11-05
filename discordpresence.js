@@ -1,11 +1,11 @@
 // Discord Rich Presence over Discord's local IPC socket (no dependencies).
-// Shows "DraftForge" (the name of the Discord application whose ID is configured)
+// Shows "DraftForgeCAD" (the name of the Discord application whose ID is configured)
 // with a details line such as "Working on Drawing1.dfg".
 const net = require('net');
 const path = require('path');
 
 const OP_HANDSHAKE = 0, OP_FRAME = 1, OP_CLOSE = 2, OP_PING = 3, OP_PONG = 4;
-const RETRY_MS = 30000; // Discord may be started after DraftForge
+const RETRY_MS = 30000; // Discord may be started after DraftForgeCAD
 const SEND_DELAY_MS = 1500; // Discord rate-limits activity updates; coalesce bursts
 
 function socketPaths() {
