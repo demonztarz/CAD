@@ -333,16 +333,18 @@
   const isNum = (t) => /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t);
   const dynMode = () => { const inp = S.input; return S.st.dyn && inp && inp.kind === 'point' ? (inp.base ? 'polar' : 'xy') : null; };
   const dynKeys = () => (dynMode() === 'polar' ? ['dist', 'ang'] : ['x', 'y']);
+  // while following a tracking line, the first field is the distance from the acquired point
+  const fieldKey = () => (dynActive === 0 && S.trackLine() ? 'track' : dynKeys()[dynActive]);
   function dynLive() {
     if (!dynMode()) return;
     const t = input.value.trim();
-    S.dynLock.live = isNum(t) ? { k: dynKeys()[dynActive], v: +t } : null;
+    S.dynLock.live = isNum(t) ? { k: fieldKey(), v: +t } : null;
     S.refreshCursor();
   }
   function dynTab() {
     const t = input.value.trim();
     if (t && !isNum(t)) { S.msg('Type a number in this field, then press Tab.', 'err'); return; }
-    if (t) S.dynLock[dynKeys()[dynActive]] = +t;
+    if (t) S.dynLock[fieldKey()] = +t;
     S.dynLock.live = null;
     dynActive = 1 - dynActive;
     input.value = '';
@@ -354,12 +356,12 @@
     const mode = dynMode();
     if (!mode) return false;
     const t = v.trim(), L = S.dynLock;
-    const locked = dynKeys().some((k) => L[k] != null);
+    const locked = [...dynKeys(), 'track'].some((k) => L[k] != null);
     // nothing locked and typing in the first field: keep classic entry (direct distance, x,y, @dx,dy, keywords)
     if (!locked && dynActive === 0) return false;
     if (t && !isNum(t)) return false;
     if (!t && !locked) return false;
-    if (t) L[dynKeys()[dynActive]] = +t;
+    if (t) L[fieldKey()] = +t;
     L.live = null;
     const inp = S.input;
     const p = S.effectivePoint(S.mouse.sx, S.mouse.sy, inp.base);
@@ -386,6 +388,8 @@
       const vals = mode === 'polar'
         ? [S.fmt(G.dist(inp.base, p)), S.fmt(G.deg(G.normAng(G.ang(inp.base, p))), 0) + '°']
         : [S.fmt(p.x), S.fmt(p.y)];
+      const tl = S.trackLine();
+      if (tl) { keys[0] = 'track'; vals[0] = S.fmt(G.dist(tl.o, p)); }
       keys.forEach((k, i) => {
         const act = i === dynActive, lk = L[k] != null;
         f.append(h('span', { cls: [act ? 'active' : '', lk ? 'locked' : '', act && typed ? 'typed' : ''].join(' ').trim(), title: act ? 'Type a value - Tab locks it and moves on, Enter places the point' : '' },
@@ -838,7 +842,7 @@
       }
     }
     body.append(h('div', { cls: 'h' }, 'Keys & mouse'));
-    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F11', 'Object snap tracking: pause over a snap point to acquire it, then follow the green alignment paths'], ['F12', 'Dynamic input'], ['Tab', 'Dynamic input: lock the typed length (or X), switch to the angle (or Y) field; Enter places the point'], ['Ctrl+1', 'Properties palette'], ['Ctrl+Tab', 'Next open drawing (Ctrl+Shift+Tab: previous)'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
+    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F11', 'Object snap tracking: pause over a snap point to acquire it, then follow the green alignment paths'], ['F12', 'Dynamic input'], ['FROM', 'At a point prompt: pick a base point, then type an offset such as @20,10 or @15<30'], ['Tracking + distance', 'Pause on a snap point to acquire it (F11), move along the green line and type a distance: it is measured from that point'], ['Tab', 'Dynamic input: lock the typed length (or X), switch to the angle (or Y) field; Enter places the point'], ['Ctrl+1', 'Properties palette'], ['Ctrl+Tab', 'Next open drawing (Ctrl+Shift+Tab: previous)'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
       body.append(h('div', { cls: 'c' }, k), h('div', {}), h('div', { cls: 'd' }, d));
     }
     return dialog('DraftForge Command Reference', body, [{ label: 'Close', primary: true, value: true }]);

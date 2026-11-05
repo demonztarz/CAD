@@ -36,6 +36,7 @@ code-signed. Choose **More info → Run anyway**.
 - **Multiple drawings:** every new or opened drawing gets its own file tab with its own undo history and view. Click a tab or press Ctrl+Tab to switch, × or `CLOSE` to close (asks to save unsaved changes).
 - **Discord status:** with Discord running, your profile shows **DraftForge** and "Working on <drawing name>". It needs a Discord application ID in `package.json` (`discordClientId`) or the `DRAFTFORGE_DISCORD_CLIENT_ID` environment variable. Type `DISCORD` to turn the status off or on.
 - **Dimension text:** `DIMDEC` sets the decimal places (default 2). Trailing zeros are hidden like AutoCAD's metric dimensions (50.00 shows as 50, 12.50 as 12.5); `DIMZIN` or the Properties palette switches them back on.
+- **Tracking from a point:** pause on a snap point to acquire it (F11), move along the green alignment line and type a distance: it is measured from the acquired point. `FROM` at a point prompt takes a base point, then an offset such as `@20,10` or `@15<30`.
 - **Interface:** ribbon, command line with autocomplete and history, dynamic input tooltip, window/crossing selection, right-click menus, undo/redo
 - **Files:** open DWG (R14 through 2018+), DXF and DraftForge `.dfg`; save `.dfg` or DXF R12; export SVG, PNG and PDF
 

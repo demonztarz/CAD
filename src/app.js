@@ -836,6 +836,15 @@
     S.overlay();
   };
   S.clearAcquired = () => { S.acq.length = 0; S.trackPaths = null; S.trackPt = null; };
+  // The straight tracking line the cursor is following from an acquired point, if any:
+  // { o: acquired point, dir: unit vector toward the cursor, dist: cursor distance from o }.
+  // A typed distance is measured from `o` along `dir`, like AutoCAD's object snap tracking.
+  S.trackLine = () => {
+    const ts = S.trackPaths;
+    if (!S.st.otrack || !S.trackPt || !ts || ts.length !== 1 || ts[0].k !== 'L' || !ts[0].src) return null;
+    const t = ts[0], u = P(Math.cos(t.ang), Math.sin(t.ang)), d = G.dot(G.sub(S.trackPt.p, t.o), u);
+    return { o: t.o, dir: d < 0 ? G.mul(u, -1) : u, dist: Math.abs(d) };
+  };
   const pathsOf = (a) => {
     const out = trackAngles().map((ang) => ({ k: 'L', o: a.p, ang, label: `${SNAP_NAMES[a.kind] || 'Point'}: <${Math.round(((G.deg(ang) % 180) + 180) % 180)}°`, src: a }));
     const parallel = (x, y) => Math.abs(Math.sin(x - y)) < 1e-9;
@@ -1070,7 +1079,7 @@
   function request(kind, prompt, opts = {}) {
     return new Promise((resolve, reject) => {
       S.input = { kind, prompt, ...opts, resolve, reject };
-      S.oneShot = null; S.dynLock = {};
+      S.oneShot = null; S.dynLock = {}; S.from = null;
       S.setPrompt(prompt, opts.keywords, opts.def);
       S.updatePreview();
       S.overlay();
@@ -1079,7 +1088,19 @@
   const finishInput = (value, echo) => {
     const inp = S.input;
     if (!inp) return;
-    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.oneShot = null; S.angleLock = null; S.trackPaths = null; S.trackPt = null; S.dynLock = {};
+    if (S.from && inp.kind === 'point' && value && typeof value.x === 'number') {
+      if (S.from.stage === 'base') {
+        // offsets (@dx,dy, @dist<angle, typed distance, Tab fields) are now relative to this base
+        S.from = { ...S.from, stage: 'offset' };
+        S.msg(`Base point: ${echo != null ? echo : S.fmtPt(value)}`, 'echo');
+        inp.base = value; S.lastPoint = value; S.dynLock = {};
+        S.setPrompt('<Offset> e.g. @20,10 or @15<30');
+        S.updatePreview(); S.overlay();
+        return;
+      }
+      S.from = null;
+    }
+    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.oneShot = null; S.angleLock = null; S.trackPaths = null; S.trackPt = null; S.dynLock = {}; S.from = null;
     if (echo != null) S.msg(`${inp.prompt}${inp.keywords && inp.keywords.length ? ' [' + inp.keywords.join('/') + ']' : ''}: ${echo}`, 'echo');
     S.overlay();
     inp.resolve(value);
@@ -1087,7 +1108,7 @@
   S.cancelInput = () => {
     const inp = S.input;
     if (!inp) return false;
-    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.win = null; S.angleLock = null; S.dynLock = {};
+    S.input = null; S.preview = null; S.ghost = null; S.track = null; S.snapPt = null; S.win = null; S.angleLock = null; S.dynLock = {}; S.from = null;
     S.overlay();
     inp.reject(new Cancel());
     return true;
@@ -1180,12 +1201,24 @@
           S.overlay();
           return;
         }
+        if ((up === 'FROM' || up === 'FRO') && inp.kind === 'point') {
+          S.from = { stage: 'base', base0: inp.base };
+          S.msg('From: specify the base point');
+          S.setPrompt('Base point');
+          return;
+        }
         if (osnapCodes[up.slice(0, 3)] && (inp.kind === 'point' || inp.kind === 'distance')) {
           S.oneShot = osnapCodes[up.slice(0, 3)]; S.msg(`of`); return;
         }
         const v = parseFloat(text);
         if (/^[-+]?\d*\.?\d+(e[-+]?\d+)?$/i.test(text)) {
           if (inp.kind === 'distance' || inp.kind === 'angle') return finishInput(v, text);
+          const tl = inp.kind === 'point' ? S.trackLine() : null;
+          if (tl) { // distance from the acquired point along its tracking line
+            const p = G.add(tl.o, G.mul(tl.dir, v));
+            S.lastPoint = p;
+            return finishInput(p, text);
+          }
           if (inp.kind === 'point' && inp.base) { // direct distance entry along the cursor direction
             const cur = S.cursorWorld || G.add(inp.base, P(1, 0));
             let dir = G.sub(cur, inp.base);
@@ -1272,6 +1305,13 @@
   S.effectivePoint = (sx, sy, base) => {
     const r = effectiveUnlocked(sx, sy, base);
     if (!S.input || S.input.kind !== 'point' || !S.st.dyn) return r;
+    const along = dynVal('track'), tl = along != null ? S.trackLine() : null;
+    if (tl) {
+      const q = G.add(tl.o, G.mul(tl.dir, along));
+      // keep the tracking label in step with the typed distance
+      if (S.trackPt && along >= 0) S.trackPt = { p: q, label: S.trackPt.label.replace(/\s+-?[\d.]+$/, `  ${S.fmt(along)}`) };
+      return { p: q, tracked: true };
+    }
     if (base) {
       const dist = dynVal('dist'), ang = dynVal('ang');
       if (dist == null && ang == null) return r;
