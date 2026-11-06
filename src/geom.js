@@ -281,10 +281,33 @@
       out.push({ type: 'line', x1: s.x, y1: s.y, x2: t.x, y2: t.y });
     };
     extLine(p1, d1); extLine(p2, d2);
-    out.push({ type: 'line', x1: d1.x, y1: d1.y, x2: d2.x, y2: d2.y });
-    const dl = sub(d2, d1);
-    if (len(dl) > 1e-12) { arrow(d1, mul(dl, -1)); arrow(d2, dl); }
-    label(mid(d1, d2), Math.atan2(dir.y, dir.x), fmtDim(meas, prec, trim));
+    const seg = (a, b) => out.push({ type: 'line', x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+    seg(d1, d2);
+    // Fit when the extension lines are close together. The text sits above the dimension line, so it
+    // only has to clear the extension lines and the arrows only need room for each other: whichever
+    // does not fit moves outside (arrows pointing in, text beside an extension line).
+    const L = dist(d1, d2), u = L > 1e-12 ? mul(sub(d2, d1), 1 / L) : dir;
+    const val = fmtDim(meas, prec, trim);
+    const txt = e.text != null && e.text !== '' ? String(e.text).replace('<>', val) : val;
+    const tw = TEXT.measure(txt, h), textRoom = tw + 2 * gap, arrowRoom = 2.5 * asz;
+    const textIn = L >= textRoom, arrowsIn = L >= arrowRoom;
+    // outside text goes beside the second extension line, or the first if the dimension line was placed past it
+    const side = textIn ? 0 : dot(sub(loc, d1), u) < 0 ? -1 : 1;
+    if (arrowsIn) { if (L > 1e-12) { arrow(d1, mul(u, -1)); arrow(d2, u); } }
+    else {
+      // outside, pointing at the extension lines, each with a tail (the text side's line runs under the text)
+      arrow(d1, u); arrow(d2, mul(u, -1));
+      if (side !== -1) seg(sub(d1, mul(u, 2 * asz)), d1);
+      if (side !== 1) seg(d2, add(d2, mul(u, 2 * asz)));
+    }
+    const rot = Math.atan2(dir.y, dir.x);
+    if (textIn) label(mid(d1, d2), rot, val);
+    else {
+      const from = side > 0 ? d2 : d1, v = mul(u, side);
+      const start = add(from, mul(v, arrowsIn ? gap : 2 * asz + gap));
+      seg(from, add(start, mul(v, tw + gap)));
+      label(add(start, mul(v, tw / 2)), rot, val);
+    }
     return out;
   }
 

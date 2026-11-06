@@ -130,6 +130,36 @@ test('break line: zigzag centred on the line, kept inside it, with extension', (
   assert.strictEqual(G.breaklinePts({ x: 1, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 1 }, 5), null);
 });
 
+test('narrow dimensions move arrows and then text outside the extension lines', () => {
+  // h = arrow size = 2.5; default text width is 0.72 h per character ("70" is 3.6 wide)
+  const dim = (x2, extra) => G.dimGeometry({ type: 'dim', kind: 'horizontal', x1: 0, y1: 0, x2, y2: 0, lx: x2 / 2, ly: 10, h: 2.5, ...extra }, 0);
+  const parts = (g) => ({ text: g.find((x) => x.type === 'text'), tips: g.filter((x) => x.type === 'solid').map((x) => x.pts[0].x), backs: g.filter((x) => x.type === 'solid').map((x) => x.pts[1].x) });
+  // wide: all inside, arrow bodies between the extension lines
+  let r = parts(dim(70));
+  near(r.text.x, 35); assert.ok(r.backs[0] > 0 && r.backs[1] < 70);
+  // 6 wide: text fits, arrows do not (they need 2.5 arrow sizes) -> arrows outside pointing in
+  r = parts(dim(6));
+  near(r.text.x, 3); assert.ok(r.backs[0] < 0 && r.backs[1] > 6, 'arrows outside');
+  // 8 wide: both fit; the text is above the line so it does not compete with the arrows
+  r = parts(dim(8));
+  near(r.text.x, 4); assert.ok(r.backs[0] > 0 && r.backs[1] < 8, 'arrows inside');
+  // 7 wide with long text: arrows fit, text does not -> text right of the second extension line
+  r = parts(dim(7, { text: 'LONGTEXT' }));
+  assert.ok(r.backs[0] > 0 && r.backs[1] < 7, 'arrows inside');
+  assert.ok(r.text.x - 2.5 * 0.72 * 8 / 2 > 7, 'text clear of the extension line');
+  // 3 wide: nothing fits -> both outside; text beyond the arrow tail
+  const g = dim(3, { text: '70' });
+  r = parts(g);
+  assert.ok(r.backs[0] < 0 && r.backs[1] > 3);
+  assert.ok(r.text.x - 3.6 / 2 > 3 + 2 * 2.5, 'text past the arrow tail');
+  const under = g.filter((x) => x.type === 'line' && x.y1 === x.y2 && x.y1 === 10).some((x) => Math.max(x.x1, x.x2) >= r.text.x + 3.6 / 2);
+  assert.ok(under, 'dimension line extends under the text');
+  // dimension line placed left of the first extension line -> text goes left
+  r = parts(G.dimGeometry({ type: 'dim', kind: 'horizontal', x1: 0, y1: 0, x2: 3, y2: 0, lx: -4, ly: 10, h: 2.5, text: '70' }, 0));
+  assert.strictEqual(g.filter((x) => x.type === 'line' && x.y1 === 10 && Math.min(x.x1, x.x2) >= 3).length, 1, 'no duplicate tail under the text');
+  assert.ok(r.text.x + 3.6 / 2 < 0, 'text on the left');
+});
+
 test('dimension text hides trailing zeros only', () => {
   assert.strictEqual(G.fmtDim(50, 2, true), '50');
   assert.strictEqual(G.fmtDim(12.5, 2, true), '12.5');
