@@ -301,12 +301,14 @@
     let rd = normAng(rot0);
     if (rd > Math.PI / 2 + 1e-9 && rd <= Math.PI * 1.5 + 1e-9) rd -= Math.PI;
     const leftSide = dot(u, P(Math.cos(rd), Math.sin(rd))) >= 0 ? -1 : 1;
-    // Text position (DIMTEDIT): auto/center, 'left'/'right' (inside at that end, or outside on that side
-    // if it does not fit), or a number = distance of the text centre from d1 along the dimension line.
+    // Text position (DIMTEDIT): auto (fitted), 'center' (always centred, even when it does not fit),
+    // 'left'/'right' (inside at that end, or outside on that side if it does not fit), or a number =
+    // distance of the text centre from d1 along the dimension line.
     // side: 0 = between the extension lines, -1/+1 = outside beyond d1/d2.
     const pos = e.tpos;
     let side, at;
     if (typeof pos === 'number') { at = add(d1, mul(u, pos)); side = pos < 0 ? -1 : pos > L ? 1 : 0; }
+    else if (pos === 'center') side = 0;
     else if (pos === 'left' || pos === 'right') {
       const s2 = pos === 'left' ? leftSide : -leftSide;
       if (textIn) { side = 0; at = add(s2 > 0 ? d2 : d1, mul(u, -s2 * (gap + tw / 2))); }

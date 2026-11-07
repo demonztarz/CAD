@@ -173,6 +173,11 @@ test('dimension text position: left / right / moved / angle (DIMTEDIT)', () => {
   const narrow = { ...base, x2: 3, lx: 1.5 };
   assert.ok(G.dimGeometry({ ...narrow, tpos: 'left' }, 0).find((g) => g.type === 'text').x < 0);
   assert.ok(G.dimGeometry({ ...narrow, tpos: 'right' }, 0).find((g) => g.type === 'text').x > 3);
+  // center is forced: stays centred even without room (auto would move it outside)
+  assert.ok(G.dimGeometry(narrow, 0).find((g) => g.type === 'text').x > 3);
+  const forced = G.dimGeometry({ ...narrow, tpos: 'center' }, 0);
+  near(forced.find((g) => g.type === 'text').x, 1.5);
+  assert.ok(!forced.some((x) => x.type === 'line' && x.y1 === 10 && x.y2 === 10 && Math.max(x.x1, x.x2) > 3 + 2 * 2.5), 'no extension under outside text');
   // moved past the second extension line: the dimension line reaches under the text
   const g = G.dimGeometry({ ...base, tpos: 55 }, 0);
   near(g.find((x) => x.type === 'text').x, 55);
