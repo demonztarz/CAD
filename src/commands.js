@@ -328,6 +328,30 @@
     const oy = loc.y < miny ? miny - loc.y : loc.y > maxy ? loc.y - maxy : 0;
     return oy >= ox ? 'horizontal' : 'vertical';
   };
+  const isLinearDim = (e) => e.type === 'dim' && !['radius', 'diameter', 'angular'].includes(e.kind);
+  R('DIMTEDIT', async () => {
+    const pre = S.pickfirst ? [...S.selection].filter(isLinearDim) : [];
+    const e = pre.length === 1 ? pre[0] : (await S.getEntity('Select dimension', { filter: isLinearDim })).e;
+    // dragging moves the dimension line with the text; tpos = text centre distance from d1 along the line
+    // (the location point stays mid-line, so Home returns the text to its default side)
+    const moved = (p) => {
+      const n = { ...e, lx: p.x, ly: p.y }, f = G.dimFrame(n), t = G.dot(G.sub(p, f.d1), f.u);
+      const m = G.sub(p, G.mul(f.u, t - f.L / 2));
+      n.lx = m.x; n.ly = m.y; n.tpos = t;
+      return n;
+    };
+    const r = await S.getPoint('Specify new location for dimension text or', { keywords: ['Left', 'Right', 'Center', 'Home', 'Angle'], noRubber: true, preview: (p) => [moved(p)] });
+    let n;
+    if (r === 'Left' || r === 'Right' || r === 'Center') n = { ...e, tpos: r.toLowerCase() };
+    else if (r === 'Home') { n = { ...e }; delete n.tpos; delete n.tang; }
+    else if (r === 'Angle') {
+      const a = await S.getAngle('Specify angle for dimension text', { def: e.tang != null ? +G.deg(e.tang).toFixed(4) : 0 });
+      n = { ...e, tang: G.rad(a) };
+    } else n = moved(r);
+    S.replace(new Map([[e, [n]]]));
+    S.selection.clear();
+  }, { aliases: ['DIMTED'], desc: 'Moves dimension text (drag, or Left / Right / Center / Home) or rotates it (Angle)', group: 'Annotate' });
+
   R('DIMLINEAR', async () => {
     const [a, b] = await twoPoints();
     const mk = (p) => ({ ...dimBase(), kind: linearKind(a, b, p), x1: a.x, y1: a.y, x2: b.x, y2: b.y, lx: p.x, ly: p.y });

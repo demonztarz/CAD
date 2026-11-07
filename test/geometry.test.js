@@ -160,6 +160,30 @@ test('narrow dimensions move arrows and then text outside the extension lines', 
   assert.ok(r.text.x + 3.6 / 2 < 0, 'text on the left');
 });
 
+test('dimension text position: left / right / moved / angle (DIMTEDIT)', () => {
+  const base = { type: 'dim', kind: 'horizontal', x1: 0, y1: 0, x2: 40, y2: 0, lx: 20, ly: 10, h: 2.5, text: '70' }; // "70" is 3.6 wide
+  const textOf = (extra) => G.dimGeometry({ ...base, ...extra }, 0).find((g) => g.type === 'text');
+  near(textOf({}).x, 20);
+  near(textOf({ tpos: 'left' }).x, 0.625 + 1.8);   // inside, at the left end
+  near(textOf({ tpos: 'right' }).x, 40 - 0.625 - 1.8);
+  near(textOf({ tpos: 'center' }).x, 20);
+  // points picked right to left: "left" still means the left end on screen
+  near(G.dimGeometry({ ...base, x1: 40, x2: 0, tpos: 'left' }, 0).find((g) => g.type === 'text').x, 2.425);
+  // too narrow for the text: left/right choose the outside side
+  const narrow = { ...base, x2: 3, lx: 1.5 };
+  assert.ok(G.dimGeometry({ ...narrow, tpos: 'left' }, 0).find((g) => g.type === 'text').x < 0);
+  assert.ok(G.dimGeometry({ ...narrow, tpos: 'right' }, 0).find((g) => g.type === 'text').x > 3);
+  // moved past the second extension line: the dimension line reaches under the text
+  const g = G.dimGeometry({ ...base, tpos: 55 }, 0);
+  near(g.find((x) => x.type === 'text').x, 55);
+  assert.ok(g.some((x) => x.type === 'line' && x.y1 === 10 && x.y2 === 10 && Math.min(x.x1, x.x2) === 40 && Math.max(x.x1, x.x2) >= 55 + 1.8));
+  // rotated text
+  near(textOf({ tang: Math.PI / 4 }).rot, Math.PI / 4);
+  // frame helper used by DIMTEDIT
+  const f = G.dimFrame(base);
+  nearP(f.d1, 0, 10); nearP(f.d2, 40, 10); near(f.L, 40);
+});
+
 test('dimension text hides trailing zeros only', () => {
   assert.strictEqual(G.fmtDim(50, 2, true), '50');
   assert.strictEqual(G.fmtDim(12.5, 2, true), '12.5');

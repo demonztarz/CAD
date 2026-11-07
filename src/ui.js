@@ -58,7 +58,7 @@
     ],
     Annotate: [
       { title: 'Text', items: [big('mtext', 'Multiline Text', 'MTEXT'), big('text', 'Single Line', 'TEXT')] },
-      { title: 'Dimensions', items: [big('dimlinear', 'Linear', 'DIMLINEAR'), big('dimaligned', 'Aligned', 'DIMALIGNED'), col(sm('dimradius', 'Radius', 'DIMRADIUS'), sm('dimdiameter', 'Diameter', 'DIMDIAMETER'), sm('dimangular', 'Angular', 'DIMANGULAR'))] },
+      { title: 'Dimensions', items: [big('dimlinear', 'Linear', 'DIMLINEAR'), big('dimaligned', 'Aligned', 'DIMALIGNED'), col(sm('dimradius', 'Radius', 'DIMRADIUS'), sm('dimdiameter', 'Diameter', 'DIMDIAMETER'), sm('dimangular', 'Angular', 'DIMANGULAR')), col(sm('text', 'Edit Text', 'DIMTEDIT'))] },
       { title: 'Hatch', items: [big('hatch', 'Hatch', 'HATCH')] },
     ],
     View: [
@@ -650,6 +650,11 @@
           if (one) { const txt = (G.dimGeometry(one, S.doc.settings.dimPrec, S.dimTrim()).find((g) => g.type === 'text') || {}).text; rows.push(row('Measurement', ro(txt || ''))); }
           rows.push(str('Text override', (e) => e.text || '', (e, v) => { const n = { ...e }; if (v) n.text = v; else delete n.text; return n; }),
             num('Text height', (e) => e.h || 2.5, (e, v) => (v > 0 ? { ...e, h: v } : e)));
+          if (list.every((e) => !['radius', 'diameter', 'angular'].includes(e.kind))) {
+            rows.push(sel('Text position', [['auto', 'Auto'], ['left', 'Left'], ['right', 'Right'], ['center', 'Center'], ['moved', 'Moved (DIMTEDIT)']],
+              (e) => (typeof e.tpos === 'number' ? 'moved' : e.tpos || 'auto'),
+              (e, v) => { if (v === 'moved') return e; const n = { ...e }; if (v === 'auto') delete n.tpos; else n.tpos = v; return n; }));
+          }
           break;
         case 'hatch':
           rows.push(sel('Pattern', ['SOLID', 'ANSI31', 'ANSI32', 'ANSI37', 'NET', 'LINE', 'DASH', 'BRICK', 'DOTS'].map((p) => [p, p]).concat(list.some((e) => !G.PATTERNS[e.pattern] && e.pattern !== 'SOLID') ? [[list[0].pattern, list[0].pattern]] : []),

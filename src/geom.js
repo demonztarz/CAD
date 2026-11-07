@@ -225,6 +225,22 @@
     const s = fmtNum(v, prec);
     return trim && s.includes('.') ? s.replace(/\.?0+$/, '') : s;
   }
+  // Frame of a linear/aligned dimension: measured points p1/p2, direction, dimension line ends d1/d2
+  // (through the location point lx,ly), unit vector u from d1 to d2 and its length L.
+  function dimFrame(e) {
+    const p1 = P(e.x1, e.y1), p2 = P(e.x2, e.y2), loc = P(e.lx, e.ly);
+    let dir;
+    if (e.kind === 'horizontal') dir = P(1, 0);
+    else if (e.kind === 'vertical') dir = P(0, 1);
+    else dir = norm(sub(p2, p1));
+    const n = perp(dir);
+    const d1 = add(p1, mul(n, dot(sub(loc, p1), n)));
+    // project p2 onto the dimension line through d1 along dir
+    const d2 = add(d1, mul(dir, dot(sub(p2, d1), dir)));
+    const meas = Math.abs(dot(sub(p2, p1), dir));
+    const L = dist(d1, d2), u = L > 1e-12 ? mul(sub(d2, d1), 1 / L) : dir;
+    return { p1, p2, dir, n, d1, d2, meas, u, L };
+  }
   function dimGeometry(e, prec = 2, trim = true) {
     const h = e.h || 2.5, asz = e.asz || h, gap = h * 0.25, ext = h * 0.5;
     const out = [];
@@ -262,22 +278,12 @@
       label(polar(c, am, R), am - Math.PI / 2, fmtDim(deg(s), Math.max(0, prec - 2), trim) + '°');
       return out;
     }
-    const p1 = P(e.x1, e.y1), p2 = P(e.x2, e.y2), loc = P(e.lx, e.ly);
-    let dir;
-    if (e.kind === 'horizontal') dir = P(1, 0);
-    else if (e.kind === 'vertical') dir = P(0, 1);
-    else dir = norm(sub(p2, p1));
-    const n = perp(dir);
-    const off = dot(sub(loc, p1), n);
-    const d1 = add(p1, mul(n, off)), d2raw = add(p2, mul(n, dot(sub(loc, p2), n)));
-    // project p2 onto the dimension line through d1 along dir
-    const d2 = add(d1, mul(dir, dot(sub(d2raw, d1), dir)));
-    const meas = Math.abs(dot(sub(p2, p1), dir));
+    const { p1, p2, dir, d1, d2, meas, u, L } = dimFrame(e), loc = P(e.lx, e.ly);
     const extLine = (p, d) => {
-      const v = sub(d, p), L = len(v);
-      if (L < 1e-12) return;
-      const u = mul(v, 1 / L);
-      const s = add(p, mul(u, Math.min(gap, L))), t = add(d, mul(u, ext));
+      const v = sub(d, p), Le = len(v);
+      if (Le < 1e-12) return;
+      const w = mul(v, 1 / Le);
+      const s = add(p, mul(w, Math.min(gap, Le))), t = add(d, mul(w, ext));
       out.push({ type: 'line', x1: s.x, y1: s.y, x2: t.x, y2: t.y });
     };
     extLine(p1, d1); extLine(p2, d2);
@@ -286,13 +292,28 @@
     // Fit when the extension lines are close together. The text sits above the dimension line, so it
     // only has to clear the extension lines and the arrows only need room for each other: whichever
     // does not fit moves outside (arrows pointing in, text beside an extension line).
-    const L = dist(d1, d2), u = L > 1e-12 ? mul(sub(d2, d1), 1 / L) : dir;
     const val = fmtDim(meas, prec, trim);
     const txt = e.text != null && e.text !== '' ? String(e.text).replace('<>', val) : val;
     const tw = TEXT.measure(txt, h), textRoom = tw + 2 * gap, arrowRoom = 2.5 * asz;
     const textIn = L >= textRoom, arrowsIn = L >= arrowRoom;
-    // outside text goes beside the second extension line, or the first if the dimension line was placed past it
-    const side = textIn ? 0 : dot(sub(loc, d1), u) < 0 ? -1 : 1;
+    const rot0 = Math.atan2(dir.y, dir.x), rot = e.tang != null ? e.tang : rot0;
+    // the end the text reads from is "left": -1 = the d1 end, +1 = the d2 end
+    let rd = normAng(rot0);
+    if (rd > Math.PI / 2 + 1e-9 && rd <= Math.PI * 1.5 + 1e-9) rd -= Math.PI;
+    const leftSide = dot(u, P(Math.cos(rd), Math.sin(rd))) >= 0 ? -1 : 1;
+    // Text position (DIMTEDIT): auto/center, 'left'/'right' (inside at that end, or outside on that side
+    // if it does not fit), or a number = distance of the text centre from d1 along the dimension line.
+    // side: 0 = between the extension lines, -1/+1 = outside beyond d1/d2.
+    const pos = e.tpos;
+    let side, at;
+    if (typeof pos === 'number') { at = add(d1, mul(u, pos)); side = pos < 0 ? -1 : pos > L ? 1 : 0; }
+    else if (pos === 'left' || pos === 'right') {
+      const s2 = pos === 'left' ? leftSide : -leftSide;
+      if (textIn) { side = 0; at = add(s2 > 0 ? d2 : d1, mul(u, -s2 * (gap + tw / 2))); }
+      else side = s2;
+    } else side = textIn ? 0 : dot(sub(loc, d1), u) < 0 ? -1 : 1;
+    if (side !== 0 && !at) at = add(side > 0 ? d2 : d1, mul(u, side * ((arrowsIn ? gap : 2 * asz + gap) + tw / 2)));
+    if (!at) at = mid(d1, d2);
     if (arrowsIn) { if (L > 1e-12) { arrow(d1, mul(u, -1)); arrow(d2, u); } }
     else {
       // outside, pointing at the extension lines, each with a tail (the text side's line runs under the text)
@@ -300,14 +321,11 @@
       if (side !== -1) seg(sub(d1, mul(u, 2 * asz)), d1);
       if (side !== 1) seg(d2, add(d2, mul(u, 2 * asz)));
     }
-    const rot = Math.atan2(dir.y, dir.x);
-    if (textIn) label(mid(d1, d2), rot, val);
-    else {
-      const from = side > 0 ? d2 : d1, v = mul(u, side);
-      const start = add(from, mul(v, arrowsIn ? gap : 2 * asz + gap));
-      seg(from, add(start, mul(v, tw + gap)));
-      label(add(start, mul(v, tw / 2)), rot, val);
+    if (side !== 0) { // extend the dimension line under text outside the extension lines
+      const from = side > 0 ? d2 : d1, v = mul(u, side), far = dot(sub(at, from), v) + tw / 2 + gap;
+      if (far > 0) seg(from, add(from, mul(v, far)));
     }
+    label(at, rot, val);
     return out;
   }
 
@@ -958,7 +976,7 @@
   const api = {
     TAU, EPS, P, add, sub, mul, dot, cross, len, dist, norm, perp, lerp, mid, ang, polar, same, normAng, sweep, angInArc, rad, deg,
     M, ACI, aciFromRgb, bulgeArc, bulgeFromSweep, catmull, nurbs, splinePoints, ellipsePoint, ellipsePoints, isFullEllipse,
-    TEXT, textBox, textCorners, fmtNum, fmtDim, dimGeometry, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
+    TEXT, textBox, textCorners, fmtNum, fmtDim, dimFrame, dimGeometry, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
     prims, primsOf, flatPrims, transformPrim, arcPoints, primBox, bbox, closestOnSeg, closestOnPrim, distToPrim, pointInPoly,
     segSeg, lineCircle, circleCircle, primInter, primParam, primAt, primLength, plinePrims, polyPrims,
     plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, filletLines, chamferLines,
