@@ -49,7 +49,7 @@
         more: [sm('mtext', 'Multiline Text', 'MTEXT'), sm('dimaligned', 'Aligned', 'DIMALIGNED'), sm('dimradius', 'Radius', 'DIMRADIUS'), sm('dimdiameter', 'Diameter', 'DIMDIAMETER'), sm('dimangular', 'Angular', 'DIMANGULAR'), sm('text', 'Edit Dim Text', 'DIMTEDIT')] },
       { title: 'Groups', items: [big('group', 'Group', 'GROUP')], more: [sm('ungroup', 'Ungroup', 'UNGROUP'), sm('groupedit', 'Group Edit', 'GROUPEDIT'), sm('groupsel', 'Group Selection', 'PICKSTYLE')] },
       // stacked compact panels: one row each, symbol only (name on hover), ▾ opens that panel's slide-out
-      { title: '', stack: [
+      { title: 'Tools', stack: [
         { title: 'Block', item: sm('insert', 'Insert Block', 'INSERT'), more: [sm('block', 'Create Block', 'BLOCK'), sm('explode', 'Explode', 'EXPLODE')] },
         { title: 'Utilities', item: sm('measure', 'Measure', 'DIST'), more: [sm('id', 'ID Point', 'ID'), sm('list', 'List', 'LIST'), sm('area', 'Area', 'AREA')] },
         { title: 'Clipboard', item: sm('paste', 'Paste', 'PASTECLIP'), more: [sm('copyclip', 'Copy Clip', 'COPYCLIP'), sm('cut', 'Cut', 'CUTCLIP')] },
@@ -122,7 +122,7 @@
           row.append(arr);
           return row;
         }));
-        el.append(rows, h('div', { cls: 'rtitle' }));
+        el.append(rows, h('div', { cls: 'rtitle' }, p.title));
         rib.append(el);
         return el;
       }
