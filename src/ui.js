@@ -45,6 +45,7 @@
         col(sm('extend', 'Extend', 'EXTEND'), sm('chamfer', 'Chamfer', 'CHAMFER'), sm('offset', 'Offset', 'OFFSET')),
         col(sm('erase', 'Erase', 'ERASE'), sm('explode', 'Explode', 'EXPLODE'), sm('join', 'Join', 'JOIN'))] },
       { title: 'Properties', items: [big('matchprop', 'Match Properties', 'MATCHPROP'), col(ctl('color'), ctl('lw'), ctl('ltype'))] },
+      { title: 'Groups', items: [big('group', 'Group', 'GROUP'), col(sm('ungroup', 'Ungroup', 'UNGROUP'), sm('groupedit', 'Group Edit', 'GROUPEDIT'), sm('groupsel', 'Group Selection', 'PICKSTYLE'))] },
       { title: 'Annotation', items: [big('text', 'Text', 'TEXT'), big('dimlinear', 'Dimension', 'DIMLINEAR'),
         col(sm('dimaligned', 'Aligned', 'DIMALIGNED'), sm('dimradius', 'Radius', 'DIMRADIUS'), sm('dimangular', 'Angular', 'DIMANGULAR'))] },
       { title: 'Layers', items: [big('layers', 'Layer Properties', 'LAYER'), col(ctl('layer'), { t: 'row', items: [sm('layers', 'Make Current', 'LAYMCUR'), sm('matchprop', 'Match Layer', 'MATCHPROP')] })] },
@@ -457,6 +458,7 @@
       const key = k.toLowerCase();
       if (key === 's') { ev.preventDefault(); run(ev.shiftKey ? 'SAVEAS' : 'QSAVE'); return; }
       if (key === '1') { ev.preventDefault(); togglePalette(); return; }
+      if (key === 'a' && ev.shiftKey) { ev.preventDefault(); run('PICKSTYLE'); return; }
       if (key === 'tab') { ev.preventDefault(); if (docTabs.length > 1) switchTab((curTab + (ev.shiftKey ? -1 : 1) + docTabs.length) % docTabs.length); return; }
       if (key === 'e') { ev.preventDefault(); S.cycleIsoplane(); return; }
       if (key === '9') { ev.preventDefault(); S.showCommandLine(); return; }
@@ -562,6 +564,7 @@
       }
     }
     gen.push(row('Color', selects.color), row('Layer', selects.layer), row('Linetype', selects.ltype), row('Lineweight', selects.lw));
+    if (list.length) { const gs = new Set(list.map((e) => e.g || '')); gen.push(row('Group', ro(gs.size > 1 ? '*VARIES*' : S.groupLabel([...gs][0]) || 'None'))); }
     body.append(group('General', gen));
     if (!list.length) {
       const st = S.doc.settings;
@@ -865,7 +868,7 @@
       }
     }
     body.append(h('div', { cls: 'h' }, 'Keys & mouse'));
-    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F11', 'Object snap tracking: pause over a snap point to acquire it, then follow the green alignment paths'], ['F12', 'Dynamic input'], ['FROM', 'At a point prompt: pick a base point, then type an offset such as @20,10 or @15<30'], ['Tracking + distance', 'Pause on a snap point to acquire it (F11), move along the green line and type a distance: it is measured from that point'], ['Tab', 'Dynamic input: lock the typed length (or X), switch to the angle (or Y) field; Enter places the point'], ['Ctrl+1', 'Properties palette'], ['Ctrl+9', 'Show/hide the command line (typing also brings it back)'], ['Ctrl+Tab', 'Next open drawing (Ctrl+Shift+Tab: previous)'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
+    for (const [k, d] of [['Enter / Space', 'Finish input or repeat the last command'], ['Esc', 'Cancel the current command / clear selection'], ['F1', 'This reference'], ['F2', 'Expand command history'], ['F3', 'Object snap on/off'], ['F5 / Ctrl+E', 'Cycle isoplane (isometric drafting)'], ['<angle', 'Type e.g. <30 at a point prompt to lock the next point to that angle'], ['F7', 'Grid'], ['F8', 'Ortho'], ['F9', 'Snap'], ['F10', 'Polar tracking'], ['F11', 'Object snap tracking: pause over a snap point to acquire it, then follow the green alignment paths'], ['F12', 'Dynamic input'], ['FROM', 'At a point prompt: pick a base point, then type an offset such as @20,10 or @15<30'], ['Tracking + distance', 'Pause on a snap point to acquire it (F11), move along the green line and type a distance: it is measured from that point'], ['Tab', 'Dynamic input: lock the typed length (or X), switch to the angle (or Y) field; Enter places the point'], ['Ctrl+1', 'Properties palette'], ['Ctrl+Shift+A', 'Group selection on/off (pick single members of a group)'], ['Ctrl+9', 'Show/hide the command line (typing also brings it back)'], ['Ctrl+Tab', 'Next open drawing (Ctrl+Shift+Tab: previous)'], ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'], ['Wheel', 'Zoom at cursor'], ['Middle drag', 'Pan'], ['Middle double-click', 'Zoom extents'], ['Shift+Right click', 'Object snap overrides'], ['Coordinates', 'x,y   @dx,dy   @dist<angle   or type a distance to follow the cursor direction']]) {
       body.append(h('div', { cls: 'c' }, k), h('div', {}), h('div', { cls: 'd' }, d));
     }
     return dialog('DraftForgeCAD Command Reference', body, [{ label: 'Close', primary: true, value: true }]);
@@ -876,7 +879,7 @@
   const baseName = (p) => String(p).split(/[\\/]/).pop();
   const normalizeDoc = (d) => {
     const base = S.newDoc();
-    const doc = { ...base, ...d, settings: { ...base.settings, ...(d.settings || {}) }, blocks: d.blocks || {}, entities: Array.isArray(d.entities) ? d.entities : [] };
+    const doc = { ...base, ...d, settings: { ...base.settings, ...(d.settings || {}) }, blocks: d.blocks || {}, entities: Array.isArray(d.entities) ? d.entities : [], groups: d.groups && typeof d.groups === 'object' ? d.groups : {} };
     if (!Array.isArray(doc.layers) || !doc.layers.length) doc.layers = base.layers;
     if (!doc.layers.some((l) => l.name === '0')) doc.layers.unshift(base.layers[0]);
     const known = new Set(doc.layers.map((l) => l.name));

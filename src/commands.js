@@ -832,6 +832,67 @@
     S.emit('doc');
   }, { aliases: ['B', 'BMAKE'], desc: 'Creates a block definition from selected objects', group: 'Block' });
 
+  // ---------------------------------------------------------------- GROUPS
+  const setGroup = (list, name) => S.replace(new Map(list.map((e) => { const n = { ...e }; if (name) n.g = name; else delete n.g; return [e, [n]]; })));
+  const membersOf = (g) => S.E.filter((e) => e.g === g);
+  R('GROUP', async () => {
+    const list = await S.getSelection('Select objects to group');
+    if (!list.length) { S.msg('Nothing selected.'); return; }
+    let name = ((await S.getString('Enter a group name (Enter for an unnamed group)', {})) || '').trim();
+    S.doc.groups = S.doc.groups || {};
+    if (name.startsWith('*')) { S.msg('Group names cannot start with *.', 'err'); return; }
+    if (name && S.doc.groups[name]) {
+      const ok = await S.getKeyword(`Group "${name}" already exists. Replace it?`, ['Yes', 'No'], 'No');
+      if (ok !== 'Yes') return;
+      setGroup(membersOf(name).filter((e) => !list.includes(e)), null);
+    }
+    const anon = !name;
+    if (anon) name = S.newGroupName();
+    S.mark();
+    S.doc.groups[name] = { anon };
+    setGroup(list, name);
+    S.pruneGroups();
+    S.msg(anon ? `Unnamed group created with ${list.length} objects.` : `Group "${name}" created with ${list.length} objects.`);
+  }, { aliases: ['G'], desc: 'Groups objects so they select and move together', group: 'Modify' });
+  R('UNGROUP', async () => {
+    const list = await S.getSelection('Select a group');
+    const gs = [...new Set(list.map((e) => e.g).filter(Boolean))];
+    if (!gs.length) { S.msg('No groups in the selection.', 'err'); return; }
+    S.mark();
+    setGroup(S.E.filter((e) => e.g && gs.includes(e.g)), null);
+    for (const g of gs) delete S.doc.groups[g];
+    S.msg(`${gs.length} group(s) ungrouped: ${gs.map(S.groupLabel).join(', ')}.`);
+  }, { aliases: ['UNG'], desc: 'Breaks groups back into separate objects', group: 'Modify' });
+  R('GROUPEDIT', async () => {
+    const { e } = await S.getEntity('Select a group', { filter: (x) => !!x.g, emptyMsg: 'Select an object that belongs to a group.' });
+    const g = e.g;
+    const op = await S.getKeyword(`Group ${S.groupLabel(g)} (${membersOf(g).length} objects)`, ['Add objects', 'Remove objects', 'REName'], 'Add objects');
+    if (op === 'Add objects') {
+      const add = (await S.getSelection('Select objects to add')).filter((x) => x.g !== g);
+      if (add.length) { setGroup(add, g); S.pruneGroups(); }
+      S.msg(`${add.length} object(s) added.`);
+    } else if (op === 'Remove objects') {
+      // pick single members: group selection is paused while choosing
+      const was = S.st.groupSel; S.st.groupSel = false;
+      let rem;
+      try { rem = (await S.getSelection('Select objects to remove')).filter((x) => x.g === g); } finally { S.st.groupSel = was; }
+      if (rem.length) { setGroup(rem, null); S.pruneGroups(); }
+      S.msg(`${rem.length} object(s) removed.`);
+    } else {
+      const nn = ((await S.getString('Enter the new group name', {})) || '').trim();
+      if (!nn || nn.startsWith('*') || S.doc.groups[nn]) { S.msg('Invalid or existing group name.', 'err'); return; }
+      S.mark();
+      S.doc.groups[nn] = { anon: false }; delete S.doc.groups[g];
+      setGroup(membersOf(g), nn);
+      S.msg(`Group renamed to "${nn}".`);
+    }
+  }, { aliases: ['GE'], desc: 'Adds objects to a group, removes them, or renames the group', group: 'Modify', pickfirst: false });
+  R('PICKSTYLE', () => {
+    S.st.groupSel = S.st.groupSel === false;
+    S.saveSettings(); S.render();
+    S.msg(S.st.groupSel ? '<Group selection on: picking a member selects the whole group>' : '<Group selection off: pick single members>');
+  }, { aliases: ['GROUPSEL'], desc: 'Turns group selection on or off (Ctrl+Shift+A)', group: 'Settings', noUndo: true, pickfirst: false });
+
   // ---------------------------------------------------------------- REFERENCE IMAGES
   R('IMAGEATTACH', async () => {
     let img = S.pendingImage; S.pendingImage = null;

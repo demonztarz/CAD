@@ -10,6 +10,7 @@
     entities: [],
     layers: [{ name: '0', color: 7, ltype: 'CONTINUOUS', on: true, frozen: false, locked: false, lw: 0.25 }],
     blocks: {},
+    groups: {}, // name -> { anon }; members carry e.g = name
     layouts: [{ name: 'Layout1', paper: 'A3', orient: 'landscape', style: 'monochrome', entities: [], init: false }],
     clayer: '0',
     settings: { ltscale: 1, textHeight: 2.5, dimHeight: 2.5, dimPrec: 2, dimTrimZeros: true, prec: 4, insunits: 4 },
@@ -35,7 +36,7 @@
   S.selection = new Set();
   S.clipboard = null;
   S.st = {
-    grid: true, snap: false, ortho: false, polar: true, osnap: true, otrack: true, lwt: false, dyn: true, discord: true,
+    grid: true, snap: false, ortho: false, polar: true, osnap: true, otrack: true, lwt: false, dyn: true, discord: true, groupSel: true,
     osmodes: new Set(['end', 'mid', 'cen', 'int', 'qua', 'nod', 'ins', 'per']),
     snapSpacing: 10, gridSpacing: 10, polarInc: 45, pickbox: 5, aperture: 10, cursorSize: 5,
   };
@@ -87,7 +88,7 @@
   const snapshot = () => ({
     entities: S.doc.entities.slice(), layers: JSON.parse(JSON.stringify(S.doc.layers)), blocks: { ...S.doc.blocks },
     layouts: (S.doc.layouts || []).map((l) => ({ ...l, entities: l.entities.slice() })),
-    clayer: S.doc.clayer, settings: { ...S.doc.settings }, label: S.runningName || '',
+    clayer: S.doc.clayer, settings: { ...S.doc.settings }, groups: JSON.parse(JSON.stringify(S.doc.groups || {})), label: S.runningName || '',
   });
   S.mark = () => {
     if (opMarked) return;
@@ -99,7 +100,7 @@
   };
   S.endOp = () => { opMarked = false; };
   const restore = (s) => {
-    Object.assign(S.doc, { entities: s.entities, layers: s.layers, blocks: s.blocks, clayer: s.clayer, settings: s.settings, layouts: s.layouts });
+    Object.assign(S.doc, { entities: s.entities, layers: s.layers, blocks: s.blocks, clayer: s.clayer, settings: s.settings, layouts: s.layouts, groups: s.groups || {} });
     if (S.space && !S.layoutObj()) S.space = null;
     S.refreshLayers(); S.clearCaches(); S.selection.clear(); S.setDirty(true); S.emit('doc'); S.render();
   };
@@ -126,7 +127,43 @@
     return e;
   };
   S.add = (e) => { S.mark(); S.decorate(e); S.E.push(e); S.last = e; S.render(); return e; };
-  S.addRaw = (list) => { S.mark(); for (const e of list) S.E.push(e); if (list.length) S.last = list[list.length - 1]; S.render(); };
+  // ======================= groups =======================
+  // Members carry e.g = group name; S.doc.groups holds the definitions (anon = unnamed, shown as *A1...).
+  S.groupOf = (e) => (e && e.g && S.st.groupSel !== false ? e.g : null);
+  // a pick or window adds every member of the groups it touches (unless group selection is off)
+  S.withGroups = (list) => {
+    const gs = new Set(list.map(S.groupOf).filter(Boolean));
+    if (!gs.size) return list;
+    const out = new Set(list);
+    for (const x of S.E) if (x.g && gs.has(x.g) && S.isSelectable(x)) out.add(x);
+    return [...out];
+  };
+  S.newGroupName = () => { let i = 1; while ((S.doc.groups || {})['*A' + i]) i++; return '*A' + i; };
+  S.groupLabel = (name) => (name && S.doc.groups && S.doc.groups[name] && S.doc.groups[name].anon ? `(unnamed ${name})` : name || '');
+  // drop definitions whose members are all gone
+  S.pruneGroups = () => {
+    const used = new Set(); const visit = (l) => { for (const e of l) if (e.g) used.add(e.g); };
+    visit(S.doc.entities); for (const l of S.doc.layouts || []) visit(l.entities);
+    for (const k of Object.keys(S.doc.groups || {})) if (!used.has(k)) delete S.doc.groups[k];
+  };
+  // Copies of grouped objects: each complete copy of a group becomes a new unnamed group (arrays add
+  // copies instance by instance); copies of only some members are left ungrouped.
+  function regroupCopies(list) {
+    const byG = new Map();
+    list.forEach((e, i) => { if (e.g) { if (!byG.has(e.g)) byG.set(e.g, []); byG.get(e.g).push(i); } });
+    if (!byG.size) return;
+    S.doc.groups = S.doc.groups || {};
+    for (const [g, idx] of byG) {
+      const n = Math.max(1, S.E.filter((x) => x.g === g).length || idx.length);
+      for (let k = 0; k < idx.length; k += n) {
+        const chunk = idx.slice(k, k + n);
+        let name = null;
+        if (chunk.length === n) { name = S.newGroupName(); S.doc.groups[name] = { anon: true }; }
+        for (const i of chunk) { const c = { ...list[i] }; if (name) c.g = name; else delete c.g; list[i] = c; }
+      }
+    }
+  }
+  S.addRaw = (list) => { S.mark(); regroupCopies(list); for (const e of list) S.E.push(e); if (list.length) S.last = list[list.length - 1]; S.render(); };
   // replace entities: map old -> array of new (or [] to delete)
   S.replace = (map) => {
     if (!map.size) return;
@@ -563,7 +600,8 @@
       worldT();
       const pt = new Painter(c, { vr }); pt.extraWidth = 2;
       c.globalAlpha = 0.9;
-      drawEntity(pt, S.hover, null, upp, false, S.layoutObj() ? '#1f6fe5' : '#9fd0ff'); pt.flush();
+      for (const x of S.withGroups([S.hover])) drawEntity(pt, x, null, upp, false, S.layoutObj() ? '#1f6fe5' : '#9fd0ff');
+      pt.flush();
       c.globalAlpha = 1;
     }
     // ghost (objects being moved/copied) and preview geometry
@@ -1432,8 +1470,9 @@
       if (inp.kind === 'select') {
         const e = S.pick(sx, sy);
         if (e) {
-          if (ev.shiftKey) inp.temp.delete(e); else inp.temp.add(e);
-          S.msg(`1 found, ${inp.temp.size} total`);
+          const hit = S.withGroups([e]);
+          for (const x of hit) { if (ev.shiftKey) inp.temp.delete(x); else inp.temp.add(x); }
+          S.msg(`${hit.length} found${hit.length > 1 ? ' (group)' : ''}, ${inp.temp.size} total`);
           S.render();
         } else startWindow(w, sx, sy);
         return;
@@ -1441,10 +1480,12 @@
       return;
     }
     // idle
-    if (S.hoverGrip) { startGripEdit(S.hoverGrip); return; }
+    // the hover grip can be stale (selection cleared by a command without the mouse moving)
+    if (S.hoverGrip && S.selection.has(S.hoverGrip.e)) { startGripEdit(S.hoverGrip); return; }
+    S.hoverGrip = null;
     const e = S.pick(sx, sy);
     if (e) {
-      if (ev.shiftKey) S.selection.delete(e); else S.selection.add(e);
+      for (const x of S.withGroups([e])) { if (ev.shiftKey) S.selection.delete(x); else S.selection.add(x); }
       S.emit('selection'); S.render();
     } else startWindow(w, sx, sy);
   });
@@ -1464,7 +1505,7 @@
     S.win = null;
     if (Math.hypot(sa.x - sb.x, sa.y - sb.y) < 3) { S.overlay(); return; }
     const crossing = sb.x < sa.x;
-    const found = S.windowSelect(a, w, crossing);
+    const found = S.withGroups(S.windowSelect(a, w, crossing));
     const target = S.input && S.input.kind === 'select' ? S.input.temp : S.selection;
     for (const e of found) { if (shift) target.delete(e); else target.add(e); }
     if (S.input && S.input.kind === 'select') S.msg(`${found.length} found, ${target.size} total`);
