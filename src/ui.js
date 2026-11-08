@@ -31,27 +31,28 @@
   const big = (icon, label, cmd, tip) => ({ t: 'big', icon, label, cmd, tip });
   const sm = (icon, label, cmd, tip) => ({ t: 'sm', icon, label, cmd, tip });
   const col = (...items) => ({ t: 'col', items });
+  const icon = (icon, label, cmd) => ({ t: 'icon', icon, label, cmd }); // big symbol, no label
   const ctl = (kind) => ({ t: 'ctl', kind });
   const RIBBON = {
     Home: [
-      { title: 'Draw', items: [big('line', 'Line', 'LINE'), big('pline', 'Polyline', 'PLINE'), big('circle', 'Circle', 'CIRCLE'), big('arc', 'Arc', 'ARC'),
-        col(sm('rect', 'Rectangle', 'RECTANG'), sm('polygon', 'Polygon', 'POLYGON'), sm('ellipse', 'Ellipse', 'ELLIPSE')),
-        col(sm('hatch', 'Hatch', 'HATCH'), sm('spline', 'Spline', 'SPLINE'), sm('point', 'Point', 'POINT')),
-        col(sm('breakline', 'Break Line', 'BREAKLINE'))] },
-      { title: 'Modify', items: [
+      { title: 'Draw', keep: 3, items: [big('line', 'Line', 'LINE'), big('pline', 'Polyline', 'PLINE'), big('circle', 'Circle', 'CIRCLE'), big('arc', 'Arc', 'ARC'),
+        col(sm('rect', 'Rectangle', 'RECTANG'), sm('hatch', 'Hatch', 'HATCH'), sm('ellipse', 'Ellipse', 'ELLIPSE'))],
+        more: [sm('polygon', 'Polygon', 'POLYGON'), sm('spline', 'Spline', 'SPLINE'), sm('point', 'Point', 'POINT'), sm('breakline', 'Break Line', 'BREAKLINE')] },
+      { title: 'Modify', keep: 3, items: [
         col(sm('move', 'Move', 'MOVE'), sm('copy', 'Copy', 'COPY'), sm('stretch', 'Stretch', 'STRETCH')),
         col(sm('rotate', 'Rotate', 'ROTATE'), sm('mirror', 'Mirror', 'MIRROR'), sm('scale', 'Scale', 'SCALE')),
-        col(sm('trim', 'Trim', 'TRIM'), sm('fillet', 'Fillet', 'FILLET'), sm('array', 'Array', 'ARRAYRECT')),
-        col(sm('extend', 'Extend', 'EXTEND'), sm('chamfer', 'Chamfer', 'CHAMFER'), sm('offset', 'Offset', 'OFFSET')),
-        col(sm('erase', 'Erase', 'ERASE'), sm('explode', 'Explode', 'EXPLODE'), sm('join', 'Join', 'JOIN'))] },
-      { title: 'Properties', items: [big('matchprop', 'Match Properties', 'MATCHPROP'), col(ctl('color'), ctl('lw'), ctl('ltype'))] },
-      { title: 'Groups', items: [big('group', 'Group', 'GROUP'), col(sm('ungroup', 'Ungroup', 'UNGROUP'), sm('groupedit', 'Group Edit', 'GROUPEDIT'), sm('groupsel', 'Group Selection', 'PICKSTYLE'))] },
-      { title: 'Annotation', items: [big('text', 'Text', 'TEXT'), big('dimlinear', 'Dimension', 'DIMLINEAR'),
-        col(sm('dimaligned', 'Aligned', 'DIMALIGNED'), sm('dimradius', 'Radius', 'DIMRADIUS'), sm('dimangular', 'Angular', 'DIMANGULAR'))] },
-      { title: 'Layers', items: [big('layers', 'Layer Properties', 'LAYER'), col(ctl('layer'), { t: 'row', items: [sm('layers', 'Make Current', 'LAYMCUR'), sm('matchprop', 'Match Layer', 'MATCHPROP')] })] },
-      { title: 'Block', items: [big('insert', 'Insert', 'INSERT'), col(sm('block', 'Create', 'BLOCK'), sm('explode', 'Explode', 'EXPLODE'))] },
-      { title: 'Utilities', items: [big('measure', 'Measure', 'DIST'), col(sm('id', 'ID Point', 'ID'), sm('list', 'List', 'LIST'), sm('area', 'Area', 'AREA'))] },
-      { title: 'Clipboard', items: [big('paste', 'Paste', 'PASTECLIP'), col(sm('copyclip', 'Copy Clip', 'COPYCLIP'), sm('cut', 'Cut', 'CUTCLIP'))] },
+        col(sm('trim', 'Trim', 'TRIM'), sm('extend', 'Extend', 'EXTEND'), sm('offset', 'Offset', 'OFFSET')),
+        col(sm('fillet', 'Fillet', 'FILLET'), sm('erase', 'Erase', 'ERASE'), sm('array', 'Array', 'ARRAYRECT'))],
+        more: [sm('chamfer', 'Chamfer', 'CHAMFER'), sm('join', 'Join', 'JOIN'), sm('explode', 'Explode', 'EXPLODE'), sm('break', 'Break', 'BREAK'), sm('arraypolar', 'Polar Array', 'ARRAYPOLAR')] },
+      { title: 'Layers', keep: 2, items: [col(ctl('layer'), { t: 'row', items: [sm('layers', 'Layer Properties', 'LAYER'), sm('laycur', 'Make Object\'s Layer Current', 'LAYMCUR'), sm('matchprop', 'Match Layer', 'MATCHPROP')] })] },
+      { title: 'Properties', keep: 2, items: [col(ctl('color'), ctl('lw'), ctl('ltype'))], more: [sm('matchprop', 'Match Properties', 'MATCHPROP')] },
+      { title: 'Annotation', keep: 1, items: [big('text', 'Text', 'TEXT'), big('dimlinear', 'Dimension', 'DIMLINEAR')],
+        more: [sm('mtext', 'Multiline Text', 'MTEXT'), sm('dimaligned', 'Aligned', 'DIMALIGNED'), sm('dimradius', 'Radius', 'DIMRADIUS'), sm('dimdiameter', 'Diameter', 'DIMDIAMETER'), sm('dimangular', 'Angular', 'DIMANGULAR'), sm('text', 'Edit Dim Text', 'DIMTEDIT')] },
+      { title: 'Groups', items: [big('group', 'Group', 'GROUP')], more: [sm('ungroup', 'Ungroup', 'UNGROUP'), sm('groupedit', 'Group Edit', 'GROUPEDIT'), sm('groupsel', 'Group Selection', 'PICKSTYLE')] },
+      // compact panels: the symbol only (the name shows on hover); the rest is in each slide-out
+      { title: 'Block', items: [icon('insert', 'Insert Block', 'INSERT')], more: [sm('block', 'Create Block', 'BLOCK'), sm('explode', 'Explode', 'EXPLODE')] },
+      { title: 'Utilities', items: [icon('measure', 'Measure', 'DIST')], more: [sm('id', 'ID Point', 'ID'), sm('list', 'List', 'LIST'), sm('area', 'Area', 'AREA')] },
+      { title: 'Clipboard', items: [icon('paste', 'Paste', 'PASTECLIP')], more: [sm('copyclip', 'Copy Clip', 'COPYCLIP'), sm('cut', 'Cut', 'CUTCLIP')] },
     ],
     Insert: [
       { title: 'Block', items: [big('insert', 'Insert', 'INSERT'), big('block', 'Create Block', 'BLOCK'), big('explode', 'Explode', 'EXPLODE')] },
@@ -84,6 +85,7 @@
     if (it.t === 'big' || it.t === 'sm') {
       return h('button', { cls: 'rbtn' + (it.t === 'big' ? ' big' : ''), title: tipFor(it.label, it.cmd), onclick: () => run(it.cmd), html: I(it.icon, it.t === 'big' ? 34 : 18) + `<span>${esc(it.label)}</span>` });
     }
+    if (it.t === 'icon') return h('button', { cls: 'rbtn big icon-big', title: tipFor(it.label, it.cmd), 'aria-label': it.label, onclick: () => run(it.cmd), html: I(it.icon, 34) });
     if (it.t === 'col') return h('div', { cls: 'rcol' }, it.items.map(buildItem));
     if (it.t === 'row') return h('div', { cls: 'rctl' }, it.items.map((x) => { const b = buildItem(x); b.classList.add('icon-only'); b.querySelector('span').remove(); return b; }));
     if (it.t === 'ctl') {
@@ -109,11 +111,55 @@
     for (const name of Object.keys(RIBBON)) {
       tabs.append(h('div', { cls: 'rt' + (name === activeTab ? ' active' : ''), onclick: () => { activeTab = name; buildRibbon(); } }, name));
     }
-    for (const p of RIBBON[activeTab]) {
-      rib.append(h('div', { cls: 'rpanel' }, h('div', { cls: 'rbody' }, p.items.map(buildItem)), h('div', { cls: 'rtitle' }, p.title)));
+    const panels = RIBBON[activeTab].map((p) => {
+      const el = h('div', { cls: 'rpanel' }, h('div', { cls: 'rbody' }, p.items.map(buildItem)));
+      // title bar: a down arrow opens the slide-out with the panel's less-used tools
+      const title = h('div', { cls: 'rtitle' + (p.more ? ' has-more' : '') }, p.title, p.more ? h('span', { cls: 'arr' }, '\u25BE') : null);
+      if (p.more) title.addEventListener('click', (ev) => { ev.stopPropagation(); toggleSlide(el, p, false); });
+      el.append(title);
+      // collapsed form, used when the window is too narrow: one button that opens the whole panel
+      const first = p.items.flatMap((it) => (it.t === 'col' ? it.items : [it])).find((it) => it.icon);
+      const cbtn = h('button', { cls: 'rbtn big collapsed', title: p.title, html: I(first ? first.icon : 'help', 34) + `<span>${esc(p.title)} \u25BE</span>` });
+      cbtn.addEventListener('click', (ev) => { ev.stopPropagation(); toggleSlide(el, p, true); });
+      el.append(cbtn);
+      rib.append(el);
+      return el;
+    });
+    // Too narrow: collapse panels into single buttons, right to left, but only where that saves room;
+    // panels marked keep (layer and property dropdowns) collapse last.
+    const order = panels.map((el, i) => ({ el, i, keep: RIBBON[activeTab][i].keep || 0 })).sort((a, b) => a.keep - b.keep || b.i - a.i);
+    for (const { el, i } of order) {
+      if (rib.scrollWidth <= rib.clientWidth || i === 0) continue;
+      const w = el.getBoundingClientRect().width;
+      el.classList.add('is-collapsed');
+      if (el.getBoundingClientRect().width >= w - 8) el.classList.remove('is-collapsed');
     }
     refreshControls();
   }
+  // slide-out below a panel: its extra tools (or the whole panel, when collapsed); pin keeps it open
+  let slide = null;
+  function closeSlide() { if (slide && !slide.pinned) { slide.el.remove(); slide.panel.classList.remove('open'); slide = null; } }
+  function toggleSlide(panelEl, p, whole) {
+    const same = slide && slide.panel === panelEl;
+    if (slide) { slide.pinned = false; closeSlide(); }
+    if (same) return;
+    const box = h('div', { cls: 'rslide' });
+    if (whole) box.append(h('div', { cls: 'rbody' }, p.items.map(buildItem)));
+    if (p.more) box.append(h('div', { cls: 'rmore' }, p.more.map(buildItem)));
+    const pin = h('button', { cls: 'pin', title: 'Keep open' }, '\uD83D\uDCCC');
+    pin.addEventListener('click', (ev) => { ev.stopPropagation(); slide.pinned = !slide.pinned; pin.classList.toggle('on', slide.pinned); });
+    box.append(h('div', { cls: 'rslide-foot' }, h('span', {}, p.title), pin));
+    box.addEventListener('click', (ev) => { if (ev.target.closest('.rbtn')) setTimeout(closeSlide, 0); ev.stopPropagation(); });
+    const r = panelEl.getBoundingClientRect();
+    box.style.left = Math.max(4, Math.min(r.left, innerWidth - 320)) + 'px';
+    box.style.top = r.bottom + 'px';
+    document.body.append(box);
+    panelEl.classList.add('open');
+    slide = { el: box, panel: panelEl, pinned: false };
+    refreshControls();
+  }
+  document.addEventListener('click', () => closeSlide());
+  window.addEventListener('resize', () => { if (slide) { slide.pinned = false; closeSlide(); } buildRibbon(); });
 
   // property dropdowns (ribbon + palette share this logic)
   function selValue(key) {

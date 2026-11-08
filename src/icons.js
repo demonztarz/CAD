@@ -65,6 +65,7 @@
     redo: s('M15 6 L20 11 L15 16', W) + s('M20 11 H10 a6 6 0 0 0 0 12 H13', W),
     exportf: s('M5 4 H14 L19 9 V20 H5 Z', W, 1.2) + s('M9 14 H21 M17 10 L21 14 L17 18', Gn),
     plot: s('M6 9 V3 H18 V9', W) + s('M3 9 H21 V17 H3 Z', W) + s('M7 14 H17 V21 H7 Z', B),
+    laycur: s('M3 9 L12 5 L21 9 L12 13 Z', B, 1.3) + s('M3 13 L12 17 L16 15', B, 1.3) + s('M15 18 L17.5 20.5 L22 15', Gn, 1.8),
     group: s('M3 3 H9 M15 3 H21 V9 M21 15 V21 H15 M9 21 H3 V15 M3 9 V3', W, 1.2) + s('M7 7 H13 V13 H7 Z', B, 1.5) + '<circle cx="15" cy="15" r="3" fill="none" stroke="#ffd166" stroke-width="1.5"/>',
     ungroup: s('M7 7 H13 V13 H7 Z', B, 1.5) + '<circle cx="17" cy="17" r="3" fill="none" stroke="#ffd166" stroke-width="1.5"/>' + s('M3 21 L21 3', R, 1.4),
     groupedit: s('M3 3 H9 M15 3 H21 V9 M21 15 V21 H15 M9 21 H3 V15 M3 9 V3', W, 1.2) + s('M8 16 L15 9 L17 11 L10 18 H8 Z', Y, 1.4),
