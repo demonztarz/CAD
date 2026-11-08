@@ -34,20 +34,20 @@
   const ctl = (kind) => ({ t: 'ctl', kind });
   const RIBBON = {
     Home: [
-      { title: 'Draw', keep: 3, items: [big('line', 'Line', 'LINE'), big('pline', 'Polyline', 'PLINE'), big('circle', 'Circle', 'CIRCLE'), big('arc', 'Arc', 'ARC'),
+      { title: 'Draw', keep: 3, expand: 2, items: [big('line', 'Line', 'LINE'), big('pline', 'Polyline', 'PLINE'), big('circle', 'Circle', 'CIRCLE'), big('arc', 'Arc', 'ARC'),
         col(sm('rect', 'Rectangle', 'RECTANG'), sm('hatch', 'Hatch', 'HATCH'), sm('ellipse', 'Ellipse', 'ELLIPSE'))],
         more: [sm('polygon', 'Polygon', 'POLYGON'), sm('spline', 'Spline', 'SPLINE'), sm('point', 'Point', 'POINT'), sm('breakline', 'Break Line', 'BREAKLINE')] },
-      { title: 'Modify', keep: 3, items: [
+      { title: 'Modify', keep: 3, expand: 1, items: [
         col(sm('move', 'Move', 'MOVE'), sm('copy', 'Copy', 'COPY'), sm('stretch', 'Stretch', 'STRETCH')),
         col(sm('rotate', 'Rotate', 'ROTATE'), sm('mirror', 'Mirror', 'MIRROR'), sm('scale', 'Scale', 'SCALE')),
         col(sm('trim', 'Trim', 'TRIM'), sm('extend', 'Extend', 'EXTEND'), sm('offset', 'Offset', 'OFFSET')),
         col(sm('fillet', 'Fillet', 'FILLET'), sm('erase', 'Erase', 'ERASE'), sm('array', 'Array', 'ARRAYRECT'))],
         more: [sm('chamfer', 'Chamfer', 'CHAMFER'), sm('join', 'Join', 'JOIN'), sm('explode', 'Explode', 'EXPLODE'), sm('break', 'Break', 'BREAK'), sm('arraypolar', 'Polar Array', 'ARRAYPOLAR')] },
       { title: 'Layers', keep: 2, items: [col(ctl('layer'), { t: 'row', items: [sm('layers', 'Layer Properties', 'LAYER'), sm('laycur', 'Make Object\'s Layer Current', 'LAYMCUR'), sm('matchprop', 'Match Layer', 'MATCHPROP')] })] },
-      { title: 'Properties', keep: 2, items: [col(ctl('color'), ctl('lw'), ctl('ltype'))], more: [sm('matchprop', 'Match Properties', 'MATCHPROP')] },
-      { title: 'Annotation', keep: 1, items: [big('text', 'Text', 'TEXT'), big('dimlinear', 'Dimension', 'DIMLINEAR')],
+      { title: 'Properties', keep: 2, expand: 5, items: [col(ctl('color'), ctl('lw'), ctl('ltype'))], more: [sm('matchprop', 'Match Properties', 'MATCHPROP')] },
+      { title: 'Annotation', keep: 1, expand: 3, items: [big('text', 'Text', 'TEXT'), big('dimlinear', 'Dimension', 'DIMLINEAR')],
         more: [sm('mtext', 'Multiline Text', 'MTEXT'), sm('dimaligned', 'Aligned', 'DIMALIGNED'), sm('dimradius', 'Radius', 'DIMRADIUS'), sm('dimdiameter', 'Diameter', 'DIMDIAMETER'), sm('dimangular', 'Angular', 'DIMANGULAR'), sm('text', 'Edit Dim Text', 'DIMTEDIT')] },
-      { title: 'Groups', items: [big('group', 'Group', 'GROUP')], more: [sm('ungroup', 'Ungroup', 'UNGROUP'), sm('groupedit', 'Group Edit', 'GROUPEDIT'), sm('groupsel', 'Group Selection', 'PICKSTYLE')] },
+      { title: 'Groups', expand: 4, items: [big('group', 'Group', 'GROUP')], more: [sm('ungroup', 'Ungroup', 'UNGROUP'), sm('groupedit', 'Group Edit', 'GROUPEDIT'), sm('groupsel', 'Group Selection', 'PICKSTYLE')] },
       // stacked compact panels: one row each, symbol only (name on hover), ▾ opens that panel's slide-out
       { title: 'Tools', stack: [
         { title: 'Block', item: sm('insert', 'Insert Block', 'INSERT'), more: [sm('block', 'Create Block', 'BLOCK'), sm('explode', 'Explode', 'EXPLODE')] },
@@ -126,10 +126,17 @@
         rib.append(el);
         return el;
       }
-      const el = h('div', { cls: 'rpanel' }, h('div', { cls: 'rbody' }, p.items.map(buildItem)));
+      const body = h('div', { cls: 'rbody' }, p.items.map(buildItem));
+      const el = h('div', { cls: 'rpanel' }, body);
+      // the slide-out tools again, shown on the ribbon itself when there is room (panel class "expanded")
+      if (p.more) {
+        const cols = [];
+        for (let k = 0; k < p.more.length; k += 3) cols.push(col(...p.more.slice(k, k + 3)));
+        body.append(h('div', { cls: 'rextra' }, cols.map(buildItem)));
+      }
       // title bar: a down arrow opens the slide-out with the panel's less-used tools
       const title = h('div', { cls: 'rtitle' + (p.more ? ' has-more' : '') }, p.title, p.more ? h('span', { cls: 'arr' }, '\u25BE') : null);
-      if (p.more) title.addEventListener('click', (ev) => { ev.stopPropagation(); toggleSlide(el, p, false); });
+      if (p.more) title.addEventListener('click', (ev) => { ev.stopPropagation(); if (!el.classList.contains('expanded')) toggleSlide(el, p, false); });
       el.append(title);
       // collapsed form, used when the window is too narrow: one button that opens the whole panel
       const first = p.items.flatMap((it) => (it.t === 'col' ? it.items : [it])).find((it) => it.icon);
@@ -139,16 +146,33 @@
       rib.append(el);
       return el;
     });
-    // Too narrow: collapse panels into single buttons, right to left, but only where that saves room;
-    // panels marked keep (layer and property dropdowns) collapse last.
-    const order = panels.map((el, i) => ({ el, i, keep: RIBBON[activeTab][i].keep || 0 })).sort((a, b) => a.keep - b.keep || b.i - a.i);
-    for (const { el, i } of order) {
-      if (rib.scrollWidth <= rib.clientWidth || i === 0 || el.classList.contains('rstack')) continue;
-      const w = el.getBoundingClientRect().width;
-      el.classList.add('is-collapsed');
-      if (el.getBoundingClientRect().width >= w - 8) el.classList.remove('is-collapsed');
-    }
+    ribPanels = panels.map((el, i) => ({ el, i, p: RIBBON[activeTab][i] }));
+    layoutRibbon();
     refreshControls();
+  }
+  // Fit the panels to the ribbon's width. Plenty of room: show slide-out tools on the ribbon itself
+  // (panels with an expand rank, in that order). Too narrow: fold panels into single buttons, right to
+  // left, only where that saves room; panels marked keep (dropdowns, Draw, Modify) fold last.
+  let ribPanels = [];
+  function layoutRibbon() {
+    const rib = $('ribbon');
+    if (!rib.clientWidth) return; // not laid out yet; the resize observer runs this again
+    const over = () => rib.scrollWidth > rib.clientWidth;
+    for (const { el } of ribPanels) el.classList.remove('is-collapsed', 'expanded');
+    if (over()) {
+      const order = [...ribPanels].sort((a, b) => (a.p.keep || 0) - (b.p.keep || 0) || b.i - a.i);
+      for (const { el, i } of order) {
+        if (!over() || i === 0 || el.classList.contains('rstack')) continue;
+        const w = el.getBoundingClientRect().width;
+        el.classList.add('is-collapsed');
+        if (el.getBoundingClientRect().width >= w - 8) el.classList.remove('is-collapsed');
+      }
+    } else {
+      for (const { el } of ribPanels.filter((x) => x.p.expand && x.p.more).sort((a, b) => a.p.expand - b.p.expand)) {
+        el.classList.add('expanded');
+        if (over()) el.classList.remove('expanded');
+      }
+    }
   }
   // slide-out below a panel: its extra tools (or the whole panel, when collapsed); pin keeps it open
   let slide = null;
@@ -180,7 +204,16 @@
     refreshControls();
   }
   document.addEventListener('click', () => closeSlide());
-  window.addEventListener('resize', () => { if (slide) { slide.pinned = false; closeSlide(); } buildRibbon(); });
+  // re-fit whenever the ribbon's width changes (window resize, maximise, fullscreen, late startup sizing)
+  let ribW = 0;
+  new ResizeObserver(() => {
+    const w = $('ribbon').clientWidth;
+    if (w === ribW) return;
+    ribW = w;
+    if (slide) { slide.pinned = false; closeSlide(); }
+    layoutRibbon();
+  }).observe($('ribbon'));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => layoutRibbon());
 
   // property dropdowns (ribbon + palette share this logic)
   function selValue(key) {
