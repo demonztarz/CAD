@@ -31,7 +31,6 @@
   const big = (icon, label, cmd, tip) => ({ t: 'big', icon, label, cmd, tip });
   const sm = (icon, label, cmd, tip) => ({ t: 'sm', icon, label, cmd, tip });
   const col = (...items) => ({ t: 'col', items });
-  const icon = (icon, label, cmd) => ({ t: 'icon', icon, label, cmd }); // big symbol, no label
   const ctl = (kind) => ({ t: 'ctl', kind });
   const RIBBON = {
     Home: [
@@ -49,10 +48,12 @@
       { title: 'Annotation', keep: 1, items: [big('text', 'Text', 'TEXT'), big('dimlinear', 'Dimension', 'DIMLINEAR')],
         more: [sm('mtext', 'Multiline Text', 'MTEXT'), sm('dimaligned', 'Aligned', 'DIMALIGNED'), sm('dimradius', 'Radius', 'DIMRADIUS'), sm('dimdiameter', 'Diameter', 'DIMDIAMETER'), sm('dimangular', 'Angular', 'DIMANGULAR'), sm('text', 'Edit Dim Text', 'DIMTEDIT')] },
       { title: 'Groups', items: [big('group', 'Group', 'GROUP')], more: [sm('ungroup', 'Ungroup', 'UNGROUP'), sm('groupedit', 'Group Edit', 'GROUPEDIT'), sm('groupsel', 'Group Selection', 'PICKSTYLE')] },
-      // compact panels: the symbol only (the name shows on hover); the rest is in each slide-out
-      { title: 'Block', items: [icon('insert', 'Insert Block', 'INSERT')], more: [sm('block', 'Create Block', 'BLOCK'), sm('explode', 'Explode', 'EXPLODE')] },
-      { title: 'Utilities', items: [icon('measure', 'Measure', 'DIST')], more: [sm('id', 'ID Point', 'ID'), sm('list', 'List', 'LIST'), sm('area', 'Area', 'AREA')] },
-      { title: 'Clipboard', items: [icon('paste', 'Paste', 'PASTECLIP')], more: [sm('copyclip', 'Copy Clip', 'COPYCLIP'), sm('cut', 'Cut', 'CUTCLIP')] },
+      // stacked compact panels: one row each, symbol only (name on hover), ▾ opens that panel's slide-out
+      { title: '', stack: [
+        { title: 'Block', item: sm('insert', 'Insert Block', 'INSERT'), more: [sm('block', 'Create Block', 'BLOCK'), sm('explode', 'Explode', 'EXPLODE')] },
+        { title: 'Utilities', item: sm('measure', 'Measure', 'DIST'), more: [sm('id', 'ID Point', 'ID'), sm('list', 'List', 'LIST'), sm('area', 'Area', 'AREA')] },
+        { title: 'Clipboard', item: sm('paste', 'Paste', 'PASTECLIP'), more: [sm('copyclip', 'Copy Clip', 'COPYCLIP'), sm('cut', 'Cut', 'CUTCLIP')] },
+      ] },
     ],
     Insert: [
       { title: 'Block', items: [big('insert', 'Insert', 'INSERT'), big('block', 'Create Block', 'BLOCK'), big('explode', 'Explode', 'EXPLODE')] },
@@ -85,7 +86,6 @@
     if (it.t === 'big' || it.t === 'sm') {
       return h('button', { cls: 'rbtn' + (it.t === 'big' ? ' big' : ''), title: tipFor(it.label, it.cmd), onclick: () => run(it.cmd), html: I(it.icon, it.t === 'big' ? 34 : 18) + `<span>${esc(it.label)}</span>` });
     }
-    if (it.t === 'icon') return h('button', { cls: 'rbtn big icon-big', title: tipFor(it.label, it.cmd), 'aria-label': it.label, onclick: () => run(it.cmd), html: I(it.icon, 34) });
     if (it.t === 'col') return h('div', { cls: 'rcol' }, it.items.map(buildItem));
     if (it.t === 'row') return h('div', { cls: 'rctl' }, it.items.map((x) => { const b = buildItem(x); b.classList.add('icon-only'); b.querySelector('span').remove(); return b; }));
     if (it.t === 'ctl') {
@@ -112,6 +112,20 @@
       tabs.append(h('div', { cls: 'rt' + (name === activeTab ? ' active' : ''), onclick: () => { activeTab = name; buildRibbon(); } }, name));
     }
     const panels = RIBBON[activeTab].map((p) => {
+      if (p.stack) {
+        const el = h('div', { cls: 'rpanel rstack' });
+        const rows = h('div', { cls: 'rbody rcol' }, p.stack.map((sub) => {
+          const b = buildItem(sub.item); b.classList.add('icon-only'); b.querySelector('span').remove();
+          const row = h('div', { cls: 'rstack-row' }, b);
+          const arr = h('button', { cls: 'rstack-arr', title: `More ${sub.title} tools` }, '\u25BE');
+          arr.addEventListener('click', (ev) => { ev.stopPropagation(); toggleSlide(row, { title: sub.title, more: sub.more }, false); });
+          row.append(arr);
+          return row;
+        }));
+        el.append(rows, h('div', { cls: 'rtitle' }));
+        rib.append(el);
+        return el;
+      }
       const el = h('div', { cls: 'rpanel' }, h('div', { cls: 'rbody' }, p.items.map(buildItem)));
       // title bar: a down arrow opens the slide-out with the panel's less-used tools
       const title = h('div', { cls: 'rtitle' + (p.more ? ' has-more' : '') }, p.title, p.more ? h('span', { cls: 'arr' }, '\u25BE') : null);
@@ -129,7 +143,7 @@
     // panels marked keep (layer and property dropdowns) collapse last.
     const order = panels.map((el, i) => ({ el, i, keep: RIBBON[activeTab][i].keep || 0 })).sort((a, b) => a.keep - b.keep || b.i - a.i);
     for (const { el, i } of order) {
-      if (rib.scrollWidth <= rib.clientWidth || i === 0) continue;
+      if (rib.scrollWidth <= rib.clientWidth || i === 0 || el.classList.contains('rstack')) continue;
       const w = el.getBoundingClientRect().width;
       el.classList.add('is-collapsed');
       if (el.getBoundingClientRect().width >= w - 8) el.classList.remove('is-collapsed');
@@ -150,10 +164,17 @@
     pin.addEventListener('click', (ev) => { ev.stopPropagation(); slide.pinned = !slide.pinned; pin.classList.toggle('on', slide.pinned); });
     box.append(h('div', { cls: 'rslide-foot' }, h('span', {}, p.title), pin));
     box.addEventListener('click', (ev) => { if (ev.target.closest('.rbtn')) setTimeout(closeSlide, 0); ev.stopPropagation(); });
-    const r = panelEl.getBoundingClientRect();
-    box.style.left = Math.max(4, Math.min(r.left, innerWidth - 320)) + 'px';
-    box.style.top = r.bottom + 'px';
+    box.style.visibility = 'hidden';
     document.body.append(box);
+    const r = panelEl.getBoundingClientRect(), bw = box.offsetWidth;
+    if (panelEl.classList.contains('rstack-row')) { // beside its row: to the right if there is room, else to the left
+      box.style.left = (r.right + bw <= innerWidth - 4 ? r.right : Math.max(4, r.left - bw)) + 'px';
+      box.style.top = r.top + 'px';
+    } else { // below the panel, kept on screen
+      box.style.left = Math.max(4, Math.min(r.left, innerWidth - bw - 4)) + 'px';
+      box.style.top = r.bottom + 'px';
+    }
+    box.style.visibility = '';
     panelEl.classList.add('open');
     slide = { el: box, panel: panelEl, pinned: false };
     refreshControls();
