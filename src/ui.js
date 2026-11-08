@@ -55,6 +55,7 @@
     Insert: [
       { title: 'Block', items: [big('insert', 'Insert', 'INSERT'), big('block', 'Create Block', 'BLOCK'), big('explode', 'Explode', 'EXPLODE')] },
       { title: 'Import', items: [big('open', 'Open DWG / DXF', 'OPEN')] },
+      { title: 'Reference', items: [big('image', 'Image', 'IMAGEATTACH'), col(sm('image', 'Fade Image', 'IMAGEADJUST'))] },
     ],
     Annotate: [
       { title: 'Text', items: [big('mtext', 'Multiline Text', 'MTEXT'), big('text', 'Single Line', 'TEXT')] },
@@ -486,7 +487,7 @@
   }
   S.on('properties', (on) => togglePalette(on));
   $('props-close').addEventListener('click', () => togglePalette(false));
-  const TYPE_NAMES = { line: 'Line', circle: 'Circle', arc: 'Arc', pline: 'Polyline', ellipse: 'Ellipse', spline: 'Spline', text: 'Text', point: 'Point', solid: 'Solid', hatch: 'Hatch', dim: 'Dimension', insert: 'Block Reference', xline: 'Construction Line', viewport: 'Viewport' };
+  const TYPE_NAMES = { line: 'Line', circle: 'Circle', arc: 'Arc', pline: 'Polyline', ellipse: 'Ellipse', spline: 'Spline', text: 'Text', point: 'Point', solid: 'Solid', hatch: 'Hatch', image: 'Image', dim: 'Dimension', insert: 'Block Reference', xline: 'Construction Line', viewport: 'Viewport' };
   function buildPalette() {
     if (!paletteOn) return;
     const body = $('props-body');
@@ -656,6 +657,13 @@
               (e, v) => { if (v === 'moved') return e; const n = { ...e }; if (v === 'auto') delete n.tpos; else n.tpos = v; return n; }));
           }
           break;
+        case 'image': {
+          const wOf = (e) => Math.hypot(e.ux, e.uy), scaleTo = (e, w) => (w > 0 ? G.transformEntity(e, G.M.scale(w / wOf(e), w / wOf(e), G.P(e.x, e.y))) : e);
+          rows.push(num('Fade (0-90)', (e) => e.fade || 0, (e, v) => ({ ...e, fade: Math.max(0, Math.min(90, v)) })),
+            num('Width', wOf, scaleTo), num('Height', (e) => Math.hypot(e.vx, e.vy), (e, v) => scaleTo(e, v * wOf(e) / Math.hypot(e.vx, e.vy))));
+          if (one) rows.push(row('Rotation', ro(S.fmt(G.deg(G.normAng(Math.atan2(one.uy, one.ux))), 2) + '°')), row('File', ro(one.name || '')), row('Pixels', ro(`${one.pw} x ${one.ph}`)));
+          break;
+        }
         case 'hatch':
           rows.push(sel('Pattern', ['SOLID', 'ANSI31', 'ANSI32', 'ANSI37', 'NET', 'LINE', 'DASH', 'BRICK', 'DOTS'].map((p) => [p, p]).concat(list.some((e) => !G.PATTERNS[e.pattern] && e.pattern !== 'SOLID') ? [[list[0].pattern, list[0].pattern]] : []),
             (e) => e.pattern, (e, v) => { const n = { ...e, pattern: v }; delete n.patLines; return n; }),
@@ -1099,6 +1107,7 @@
           out.push('</g>');
           break;
         }
+        case 'image': out.push(`<image href="${e.src}" width="${n(e.pw)}" height="${n(e.ph)}" preserveAspectRatio="none" opacity="${n(1 - Math.min(90, Math.max(0, e.fade || 0)) / 100)}" transform="matrix(${G.imageMatrix(e).map(n).join(' ')})"/>`); break;
         case 'solid': out.push(`<path d="M${e.pts.map((p) => `${n(p.x)} ${n(p.y)}`).join('L')}Z" fill="${css}"/>`); break;
         case 'hatch': {
           const d = e.loops.map((lp) => 'M' + lp.map((p) => `${n(p.x)} ${n(p.y)}`).join('L') + 'Z').join('');
@@ -1122,7 +1131,7 @@
         default: out.push(`<path d="${pathOf(G.prims(e, S.ctx()))}" fill="none" stroke="${css}" stroke-width="1" vector-effect="non-scaling-stroke" stroke-linecap="round"/>`);
       }
     };
-    for (const e of S.doc.entities) emit(e, null);
+    for (const e of S.imagesFirst(S.doc.entities)) emit(e, null);
     const w = x1 - x0, hh = y1 - y0;
     return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n(w)} ${n(hh)}" width="${Math.round(Math.min(2000, 1000 * w / Math.max(w, hh)))}" height="${Math.round(Math.min(2000, 1000 * hh / Math.max(w, hh)))}">\n<rect width="100%" height="100%" fill="#ffffff"/>\n<g transform="matrix(1 0 0 -1 ${n(-x0)} ${n(y1)})">\n${out.join('\n')}\n</g>\n</svg>\n`;
   }
@@ -1150,12 +1159,32 @@
     dialog('Start', body, [{ label: 'Close', value: true }]);
   }
 
+  // image files for IMAGEATTACH: resolves { name, src (data URL), w, h }, { error } or null if cancelled
+  const readImage = (f) => new Promise((resolve) => {
+    const rd = new FileReader();
+    rd.onload = () => { const img = new Image(); img.onload = () => resolve({ name: f.name, src: rd.result, w: img.naturalWidth, h: img.naturalHeight }); img.onerror = () => resolve({ error: `${f.name} is not a supported image.` }); img.src = rd.result; };
+    rd.onerror = () => resolve({ error: `Could not read ${f.name}.` });
+    rd.readAsDataURL(f);
+  });
+  S.pickImageFile = () => new Promise((resolve) => {
+    const inp = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp,image/bmp' });
+    inp.onchange = () => { const f = inp.files[0]; if (f) readImage(f).then(resolve); else resolve(null); };
+    inp.addEventListener('cancel', () => resolve(null));
+    inp.click();
+  });
+  const isImageFile = (f) => /^image\/(png|jpeg|gif|webp|bmp)$/.test(f.type) || /\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name);
+
   // drag & drop
   document.addEventListener('dragover', (e) => e.preventDefault());
   document.addEventListener('drop', async (e) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
     if (!file) return;
+    if (isImageFile(file)) { // dropped picture: attach it as a reference image
+      const img = await readImage(file);
+      if (img.error) { S.msg(img.error, 'err'); return; }
+      S.pendingImage = img; S.runCommand('IMAGEATTACH'); return;
+    }
     if (desk && desk.pathForFile) { const p = desk.pathForFile(file); if (p) { loadFile(await desk.openPath(p)); return; } }
     if (/\.dwg$/i.test(file.name)) { S.alert('Open', 'Opening DWG files requires the desktop app.'); return; }
     loadFile({ name: file.name, text: await file.text() });

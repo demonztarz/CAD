@@ -227,6 +227,11 @@
   }
   // Frame of a linear/aligned dimension: measured points p1/p2, direction, dimension line ends d1/d2
   // (through the location point lx,ly), unit vector u from d1 to d2 and its length L.
+  // Image (raster reference): lower-left corner x,y, bottom edge vector ux,uy, left edge vector vx,vy,
+  // pixel size pw x ph, data URL src, fade 0-90 %.
+  const imageCorners = (e) => [P(e.x, e.y), P(e.x + e.ux, e.y + e.uy), P(e.x + e.ux + e.vx, e.y + e.uy + e.vy), P(e.x + e.vx, e.y + e.vy)];
+  // canvas/SVG matrix mapping image pixels (0,0 = top-left) to world coordinates
+  const imageMatrix = (e) => [e.ux / e.pw, e.uy / e.pw, -e.vx / e.ph, -e.vy / e.ph, e.x + e.vx, e.y + e.vy];
   function dimFrame(e) {
     const p1 = P(e.x1, e.y1), p2 = P(e.x2, e.y2), loc = P(e.lx, e.ly);
     let dir;
@@ -442,6 +447,7 @@
       case 'text': polyPrims(textCorners(e), true, out); break;
       case 'hatch': for (const l of e.loops) polyPrims(l, true, out); break;
       case 'viewport': polyPrims([P(e.x, e.y), P(e.x + e.w, e.y), P(e.x + e.w, e.y + e.h), P(e.x, e.y + e.h)], true, out); break;
+      case 'image': polyPrims(imageCorners(e), true, out); break; // picked and snapped by its frame
       case 'dim': for (const s of dimGeometry(e, ctx && ctx.dimPrec, !(ctx && ctx.dimTrim === false))) out.push(...primsOf(s, ctx)); break;
       case 'insert': {
         const blk = ctx && ctx.blocks && ctx.blocks[e.name];
@@ -605,6 +611,10 @@
 
   // Transform an entity by an affine similarity matrix. Returns a new entity.
   function transformEntity(e, m) {
+    if (e.type === 'image') { // shallow copy: the embedded picture (src) is shared, not duplicated
+      const c = M.apply(m, P(e.x, e.y)), u = M.applyVec(m, P(e.ux, e.uy)), v = M.applyVec(m, P(e.vx, e.vy));
+      return { ...e, x: c.x, y: c.y, ux: u.x, uy: u.y, vx: v.x, vy: v.y };
+    }
     const o = JSON.parse(JSON.stringify(e));
     const ap = (x, y) => M.apply(m, P(x, y));
     const det = M.det(m), sc = M.scaleOf(m), mir = det < 0;
@@ -978,7 +988,7 @@
   const api = {
     TAU, EPS, P, add, sub, mul, dot, cross, len, dist, norm, perp, lerp, mid, ang, polar, same, normAng, sweep, angInArc, rad, deg,
     M, ACI, aciFromRgb, bulgeArc, bulgeFromSweep, catmull, nurbs, splinePoints, ellipsePoint, ellipsePoints, isFullEllipse,
-    TEXT, textBox, textCorners, fmtNum, fmtDim, dimFrame, dimGeometry, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
+    TEXT, textBox, textCorners, fmtNum, fmtDim, dimFrame, dimGeometry, imageCorners, imageMatrix, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
     prims, primsOf, flatPrims, transformPrim, arcPoints, primBox, bbox, closestOnSeg, closestOnPrim, distToPrim, pointInPoly,
     segSeg, lineCircle, circleCircle, primInter, primParam, primAt, primLength, plinePrims, polyPrims,
     plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, filletLines, chamferLines,

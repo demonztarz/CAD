@@ -410,6 +410,7 @@
           out.push('</g>');
           return;
         }
+        case 'image': out.push(`<image href="${e.src}" width="${n(e.pw)}" height="${n(e.ph)}" preserveAspectRatio="none" opacity="${n(1 - Math.min(90, Math.max(0, e.fade || 0)) / 100)}" transform="matrix(${G.imageMatrix(e).map(n).join(' ')})"/>`); return;
         case 'solid': out.push(`<path d="M${e.pts.map((p) => `${n(p.x)} ${n(p.y)}`).join('L')}Z" fill="${col}"/>`); return;
         case 'hatch': {
           const d = loopsPath(e.loops);
@@ -457,13 +458,13 @@
       const vr = [vp.cx - vp.w / 2 / k, vp.cy - vp.h / 2 / k, vp.cx + vp.w / 2 / k, vp.cy + vp.h / 2 / k];
       out.push(`<clipPath id="${id}"><rect x="${n(vp.x)}" y="${n(vp.y)}" width="${n(vp.w)}" height="${n(vp.h)}"/></clipPath>`);
       out.push(`<g clip-path="url(#${id})"><g transform="matrix(${n(k)} 0 0 ${n(k)} ${n(mx - vp.cx * k)} ${n(my - vp.cy * k)})">`);
-      for (const e of S.doc.entities) {
+      for (const e of S.imagesFirst(S.doc.entities)) {
         if (e.type !== 'xline') { const b = S.bbox(e); if (b[2] < vr[0] || b[0] > vr[2] || b[3] < vr[1] || b[1] > vr[3]) continue; }
         emit(e, null, k, vr);
       }
       out.push('</g></g>');
     }
-    for (const e of sheet.paper) emit(e, null, 1, null);
+    for (const e of S.imagesFirst(sheet.paper)) emit(e, null, 1, null);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${n(pw)}mm" height="${n(ph)}mm" viewBox="0 0 ${n(pw)} ${n(ph)}">\n<rect width="${n(pw)}" height="${n(ph)}" fill="#ffffff"/>\n<g transform="matrix(1 0 0 -1 0 ${n(ph)})">\n${out.join('\n')}\n</g>\n</svg>\n`;
     return prolog ? `<?xml version="1.0" encoding="UTF-8"?>\n${svg}` : svg;
   };

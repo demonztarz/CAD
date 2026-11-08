@@ -189,6 +189,22 @@ test('dimension text position: left / right / moved / angle (DIMTEDIT)', () => {
   nearP(f.d1, 0, 10); nearP(f.d2, 40, 10); near(f.L, 40);
 });
 
+test('reference image: frame, pixel matrix and transforms', () => {
+  const img = { type: 'image', x: 10, y: 20, ux: 40, uy: 0, vx: 0, vy: 30, pw: 400, ph: 300, src: 'data:image/png;base64,AAAA', fade: 50 };
+  const c = G.imageCorners(img);
+  nearP(c[0], 10, 20); nearP(c[2], 50, 50);
+  const b = G.bbox(img); assert.deepStrictEqual(b.map((v) => +v.toFixed(9)), [10, 20, 50, 50]);
+  // pixel (0,0) is the top-left corner, (pw,ph) the bottom-right
+  const m = G.imageMatrix(img), ap = (x, y) => ({ x: m[0] * x + m[2] * y + m[4], y: m[1] * x + m[3] * y + m[5] });
+  nearP(ap(0, 0), 10, 50); nearP(ap(400, 300), 50, 20);
+  // rotate 90 degrees about the corner; the picture data is shared, not copied
+  const r = G.transformEntity(img, G.M.rotate(Math.PI / 2, { x: 10, y: 20 }));
+  nearP({ x: r.ux, y: r.uy }, 0, 40); nearP({ x: r.vx, y: r.vy }, -30, 0);
+  assert.strictEqual(r.src, img.src); assert.strictEqual(r.fade, 50);
+  const s2 = G.transformEntity(img, G.M.scale(2, 2, { x: 10, y: 20 }));
+  near(s2.ux, 80); near(s2.vy, 60); near(s2.x, 10);
+});
+
 test('dimension text hides trailing zeros only', () => {
   assert.strictEqual(G.fmtDim(50, 2, true), '50');
   assert.strictEqual(G.fmtDim(12.5, 2, true), '12.5');

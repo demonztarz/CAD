@@ -832,6 +832,49 @@
     S.emit('doc');
   }, { aliases: ['B', 'BMAKE'], desc: 'Creates a block definition from selected objects', group: 'Block' });
 
+  // ---------------------------------------------------------------- REFERENCE IMAGES
+  R('IMAGEATTACH', async () => {
+    let img = S.pendingImage; S.pendingImage = null;
+    if (!img) { S.msg('Choose an image file (PNG, JPG, GIF, WebP or BMP).'); img = await S.pickImageFile(); }
+    if (!img) { S.msg('No image chosen.'); return; }
+    if (img.error) { S.msg(img.error, 'err'); return; }
+    // image object: lower-left corner c, width w, rotation rot (radians); height follows the picture's proportions
+    const make = (c, w, rot = 0) => {
+      const ht = w * img.h / img.w, cs = Math.cos(rot), sn = Math.sin(rot);
+      return { type: 'image', x: c.x, y: c.y, ux: w * cs, uy: w * sn, vx: -ht * sn, vy: ht * cs, pw: img.w, ph: img.h, src: img.src, name: img.name, fade: 0 };
+    };
+    const vr = S.viewRect(), w0 = Number(((vr[2] - vr[0]) * 0.5).toPrecision(4));
+    const ins = await S.getPoint('Specify insertion point (lower-left corner)', { preview: (p) => [make(p, w0)] });
+    S.lastPoint = ins;
+    let w;
+    const r = await S.getDistance('Specify image width or', { base: ins, keywords: ['Reference'], def: w0, preview: (p) => [make(ins, Math.max(1e-9, G.dist(ins, p)))] });
+    if (r === 'Reference') {
+      // two points on the picture and the real distance between them set the scale (corner stays put)
+      const cur = make(ins, w0);
+      const a = await S.getPoint('Specify first reference point on the image', { preview: () => [cur] });
+      const b = await S.getPoint('Specify second reference point on the image', { base: a, preview: (p) => [cur, { _rubber: true, x1: a.x, y1: a.y, x2: p.x, y2: p.y }] });
+      const d = G.dist(a, b);
+      if (d < 1e-12) { S.msg('The two reference points are the same.', 'err'); return; }
+      const real = await S.getDistance(`Enter the real distance between those points (now ${S.fmt(d)})`, { preview: () => [cur] });
+      if (!(real > 0)) { S.msg('The distance must be greater than zero.', 'err'); return; }
+      w = w0 * real / d;
+    } else {
+      if (!(r > 0)) { S.msg('The width must be greater than zero.', 'err'); return; }
+      w = r;
+    }
+    const rot = await S.getAngle('Specify rotation angle', { base: ins, def: 0, preview: (p) => [make(ins, w, G.ang(ins, p))] });
+    S.add(make(ins, w, G.rad(rot)));
+    S.msg(`Attached ${img.name} (${img.w} x ${img.h} px). To trace over it, fade it with IMAGEADJUST or in the Properties palette.`);
+  }, { aliases: ['IAT', 'IMAGE'], desc: 'Inserts a reference image (PNG, JPG, GIF, WebP, BMP) behind the drawing', group: 'Insert', pickfirst: false });
+  R('IMAGEADJUST', async () => {
+    const list = (await S.getSelection('Select images')).filter((e) => e.type === 'image');
+    if (!list.length) { S.msg('No images selected.', 'err'); return; }
+    const v = await S.getNumber('Enter fade (0 = full strength, 90 = faintest)', { def: list[0].fade || 0 });
+    const fade = Math.max(0, Math.min(90, v));
+    S.replace(new Map(list.map((e) => [e, [{ ...e, fade }]])));
+    S.msg(`Fade set to ${fade} for ${list.length} image(s).`);
+  }, { aliases: ['IAD', 'IMAGEFADE'], desc: 'Fades reference images (0-90) so the drawing stands out', group: 'Insert' });
+
   R('INSERT', async () => {
     const names = Object.keys(S.doc.blocks).filter((n) => !n.startsWith('*')).sort();
     if (!names.length) { S.msg('This drawing contains no blocks. Use BLOCK to create one.', 'err'); return; }

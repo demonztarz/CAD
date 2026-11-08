@@ -75,6 +75,7 @@
   };
   S.refreshLayers();
   const visibleLayer = (name) => { const l = layerMap.get(name); return !l || (l.on !== false && !l.frozen); };
+  S.imagesFirst = (list) => (list.some((e) => e.type === 'image') ? [...list.filter((e) => e.type === 'image'), ...list.filter((e) => e.type !== 'image')] : list);
   S.isSelectable = (e) => { const l = layerMap.get(e.layer); return visibleLayer(e.layer) && !(l && l.locked); };
 
   S.fmt = (v, prec) => G.fmtNum(v, prec ?? S.doc.settings.prec ?? 4);
@@ -276,6 +277,13 @@
     return arr.length % 2 ? arr.concat(arr) : arr;
   }
 
+  // decoded pictures for image objects, keyed by their data URL
+  const imageCache = new Map();
+  S.imageEl = (src) => {
+    let img = imageCache.get(src);
+    if (!img) { img = new Image(); img.onload = () => S.render(); img.src = src; imageCache.set(src, img); }
+    return img.complete && img.naturalWidth ? img : null;
+  };
   function drawEntity(pt, e, inh, upp, plot, override) {
     const ctx = pt.ctx;
     const cval = colorVal(e, inh);
@@ -332,6 +340,20 @@
         ctx.fillStyle = color;
         const s = 2 * upp;
         ctx.fillRect(e.x - s, e.y - s, 2 * s, 2 * s);
+        break;
+      }
+      case 'image': {
+        const cs = G.imageCorners(e), img = override ? null : S.imageEl(e.src);
+        if (img) {
+          pt.flush();
+          ctx.save(); ctx.transform(...G.imageMatrix(e));
+          ctx.globalAlpha *= 1 - Math.min(90, Math.max(0, e.fade || 0)) / 100;
+          ctx.drawImage(img, 0, 0, e.pw, e.ph);
+          ctx.restore();
+        } else { // highlight, or still loading: the frame
+          pt.begin(color, width, null, upp);
+          ctx.moveTo(cs[0].x, cs[0].y); for (let i = 1; i < 4; i++) ctx.lineTo(cs[i].x, cs[i].y); ctx.closePath();
+        }
         break;
       }
       case 'solid': {
@@ -462,7 +484,7 @@
     ctx.transform(k, 0, 0, k, mx - vp.cx * k, my - vp.cy * k);
     const vr = [vp.cx - vp.w / 2 / k, vp.cy - vp.h / 2 / k, vp.cx + vp.w / 2 / k, vp.cy + vp.h / 2 / k];
     const pt = new Painter(ctx, { vr });
-    for (const e of S.doc.entities) {
+    for (const e of S.imagesFirst(S.doc.entities)) {
       if (!visibleLayer(e.layer)) continue;
       if (e.type !== 'xline') { const b = S.bbox(e); if (b[2] < vr[0] || b[0] > vr[2] || b[3] < vr[1] || b[1] > vr[3]) continue; }
       drawEntity(pt, e, null, upp / k, plot);
@@ -500,7 +522,9 @@
       const b = S.bbox(e);
       return !(b[2] < vr[0] || b[0] > vr[2] || b[3] < vr[1] || b[1] > vr[3]);
     };
-    for (const e of lay ? lay.entities : S.doc.entities) {
+    const list = lay ? lay.entities : S.doc.entities;
+    // reference images sit behind the drawing
+    for (const e of S.imagesFirst(list)) {
       if (!visible(e)) continue;
       const l = layerMap.get(e.layer);
       if (l && l.locked && !o.plot) { pt.flush(); ctx.globalAlpha = 0.5; drawEntity(pt, e, null, upp, plot); pt.flush(); ctx.globalAlpha = 1; pt.key = ''; }
@@ -960,6 +984,7 @@
         else { add(P(e.x1, e.y1), 'd1'); add(P(e.x2, e.y2), 'd2'); add(P(e.lx, e.ly), 'loc'); }
         break;
       case 'hatch': { const b = S.bbox(e); add(P((b[0] + b[2]) / 2, (b[1] + b[3]) / 2), 'pos'); break; }
+      case 'image': { const cs = G.imageCorners(e); add(cs[0], 'pos'); add(cs[2], 'size'); break; }
       case 'viewport':
         add(P(e.x, e.y), 'k0'); add(P(e.x + e.w, e.y), 'k1'); add(P(e.x + e.w, e.y + e.h), 'k2'); add(P(e.x, e.y + e.h), 'k3');
         add(P(e.x + e.w / 2, e.y + e.h / 2), 'pos');
@@ -1015,6 +1040,12 @@
         if (idx === 'd2') return { ...e, x2: p.x, y2: p.y };
         if (idx === 'loc') return { ...e, lx: p.x, ly: p.y };
         return moved();
+      case 'image': {
+        if (idx !== 'size') return moved();
+        // scale about the insertion corner so the opposite corner follows the cursor's distance
+        const c = P(e.x, e.y), k = G.dist(c, p) / Math.max(1e-12, Math.hypot(e.ux + e.vx, e.uy + e.vy));
+        return k > 1e-9 ? G.transformEntity(e, M.scale(k, k, c)) : e;
+      }
       default: return moved();
     }
   };
