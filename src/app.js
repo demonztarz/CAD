@@ -810,7 +810,11 @@
     const tess = e.type === 'ellipse' || e.type === 'spline' || e.type === 'text' || e.type === 'hatch';
     if (e.type === 'point') add('nod', P(e.x, e.y));
     if (e.type === 'text' || e.type === 'insert') add('ins', P(e.x, e.y));
-    if (e.type === 'text') { for (const c of G.textInkCorners(e)) add('end', c); add('mid', G.textCenter(e)); } // its visible box, like other objects
+    if (e.type === 'text') { // its visible box, like other objects; a corner on the insertion point stays "Insertion"
+      const ins = P(e.x, e.y), tol = (e.h || 1) * 1e-6;
+      for (const c of G.textInkCorners(e)) if (!(modes.has('ins') && G.same(c, ins, tol))) add('end', c);
+      add('mid', G.textCenter(e));
+    }
     if (e.type === 'ellipse') {
       add('cen', P(e.cx, e.cy));
       if (G.isFullEllipse(e)) for (const t of [0, Math.PI / 2, Math.PI, 1.5 * Math.PI]) add('qua', G.ellipsePoint(e, t));
