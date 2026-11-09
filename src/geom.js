@@ -195,6 +195,8 @@
     const b = textBox(e), m = M.mul(M.translate(e.x, e.y), M.rotate(e.rot || 0));
     return [P(b.x0, b.y0), P(b.x1, b.y0), P(b.x1, b.y1), P(b.x0, b.y1)].map((p) => M.apply(m, p));
   }
+  // exact centre of the text's box
+  function textCenter(e) { const c = textCorners(e); return P((c[0].x + c[2].x) / 2, (c[0].y + c[2].y) / 2); }
 
   // ---------- dimensions (generated geometry) ----------
   function fmtNum(v, prec = 2) {
@@ -988,7 +990,7 @@
   const api = {
     TAU, EPS, P, add, sub, mul, dot, cross, len, dist, norm, perp, lerp, mid, ang, polar, same, normAng, sweep, angInArc, rad, deg,
     M, ACI, aciFromRgb, bulgeArc, bulgeFromSweep, catmull, nurbs, splinePoints, ellipsePoint, ellipsePoints, isFullEllipse,
-    TEXT, textBox, textCorners, fmtNum, fmtDim, dimFrame, dimGeometry, imageCorners, imageMatrix, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
+    TEXT, textBox, textCorners, textCenter, fmtNum, fmtDim, dimFrame, dimGeometry, imageCorners, imageMatrix, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
     prims, primsOf, flatPrims, transformPrim, arcPoints, primBox, bbox, closestOnSeg, closestOnPrim, distToPrim, pointInPoly,
     segSeg, lineCircle, circleCircle, primInter, primParam, primAt, primLength, plinePrims, polyPrims,
     plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, filletLines, chamferLines,

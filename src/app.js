@@ -802,6 +802,7 @@
     const tess = e.type === 'ellipse' || e.type === 'spline' || e.type === 'text' || e.type === 'hatch';
     if (e.type === 'point') add('nod', P(e.x, e.y));
     if (e.type === 'text' || e.type === 'insert') add('ins', P(e.x, e.y));
+    if (e.type === 'text') { for (const c of G.textCorners(e)) add('end', c); add('mid', G.textCenter(e)); } // its box, like other objects
     if (e.type === 'ellipse') {
       add('cen', P(e.cx, e.cy));
       if (G.isFullEllipse(e)) for (const t of [0, Math.PI / 2, Math.PI, 1.5 * Math.PI]) add('qua', G.ellipsePoint(e, t));
@@ -1014,7 +1015,14 @@
       case 'pline': e.pts.forEach((p, i) => add(P(p.x, p.y), 'v' + i)); break;
       case 'ellipse': add(P(e.cx, e.cy), 'c'); add(P(e.cx + e.mx, e.cy + e.my), 'maj'); add(G.ellipsePoint(e, Math.PI / 2), 'min'); break;
       case 'spline': (e.fit || e.ctrl || []).forEach((p, i) => add(P(p.x, p.y), 's' + i)); break;
-      case 'text': case 'insert': case 'point': add(P(e.x, e.y), 'pos'); break;
+      case 'text': {
+        const ins = P(e.x, e.y), cs = G.textCorners(e);
+        add(ins, 'pos');
+        cs.forEach((c, i) => { if (!G.same(c, ins, 1e-9)) add(c, 'k' + i); });
+        add(G.textCenter(e), 'tc');
+        break;
+      }
+      case 'insert': case 'point': add(P(e.x, e.y), 'pos'); break;
       case 'xline': add(P(e.x, e.y), 'pos'); break;
       case 'solid': e.pts.forEach((p, i) => add(P(p.x, p.y), 'v' + i)); break;
       case 'dim':
