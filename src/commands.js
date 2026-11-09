@@ -662,7 +662,7 @@
     if (e.type === 'hatch') return e.loops.map((l) => ({ type: 'pline', closed: true, pts: l.map((p) => ({ x: p.x, y: p.y, b: 0 })), layer: e.layer, ...(e.color !== undefined ? { color: e.color } : {}) }));
     return null;
   }
-  S.dimParts = (e) => G.dimGeometry(e, S.doc.settings.dimPrec ?? 2, S.dimTrim());
+  S.dimParts = (e) => G.dimGeometry(e, S.dimOpts());
   R('EXPLODE', async () => {
     const list = await S.getSelection();
     const map = new Map();
@@ -1090,6 +1090,13 @@
     S.mark(); S.doc.settings.dimTrimZeros = r === 'Hide'; S.clearCaches(); S.render(); S.emit('doc');
     S.msg(r === 'Hide' ? 'Dimensions hide trailing zeros: 50.00 shows as 50, 12.50 as 12.5.' : 'Dimensions show every decimal place set by DIMDEC.');
   }, { aliases: ['DIMZEROS'], desc: 'Hides or shows trailing zeros in dimension text', group: 'Settings' });
+  const ARROWS = { AUto: 'auto', ARrow: 'arrow', Tick: 'tick' };
+  R('DIMARROW', async () => {
+    const cur = S.doc.settings.dimArrow || 'auto';
+    const r = await S.getKeyword('Dimension arrowheads (Auto = ticks only where arrows do not fit)', Object.keys(ARROWS), Object.keys(ARROWS).find((k) => ARROWS[k] === cur));
+    S.mark(); S.doc.settings.dimArrow = ARROWS[r]; S.clearCaches(); S.render(); S.emit('doc');
+    S.msg({ AUto: 'Arrows where they fit, ticks on narrow dimensions.', ARrow: 'Arrows always; on narrow dimensions they go outside.', Tick: 'Architectural ticks on all dimensions.' }[r] + ' Individual dimensions can override this in the Properties palette.');
+  }, { aliases: ['DIMTICK'], desc: 'Sets dimension arrowheads for the drawing: Auto, Arrow or Tick', group: 'Settings' });
 
   // ---------------------------------------------------------------- EDIT / FILE
   R('U', () => S.undo(), { aliases: ['UNDO'], desc: 'Reverses the most recent operation', group: 'Edit', noUndo: true, pickfirst: false });

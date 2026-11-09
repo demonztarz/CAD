@@ -43,6 +43,7 @@ code-signed. Choose **More info → Run anyway**.
 - **Groups:** `GROUP` (`G`, Home > Groups) joins objects so picking one selects them all; give it a name or press Enter for an unnamed group. `UNGROUP` breaks a group up, `GROUPEDIT` adds or removes objects or renames it, and Ctrl+Shift+A (`PICKSTYLE`) turns group selection off to pick single members. Copies of a whole group become a new group.
 - **Ribbon:** panels show their everyday tools; click a panel title with ▾ for the rest (the pin keeps it open). On wide screens the extra tools appear on the ribbon itself. Insert Block, Measure and Paste are stacked as symbols, each with its own ▾. On narrow windows panels fold into one button that opens the whole panel; Draw and Modify stay open, and the layer and property dropdowns fold last.
 - **Text box points:** every text object has its four box corners and exact centre as snap points (Endpoint and Midpoint snaps) and grips, so text can be placed, aligned or moved by any of them.
+- **Dimension arrowheads:** Auto (default) uses arrows where they fit and architectural ticks on narrow dimensions; Arrow flips arrows outside instead; Tick uses ticks everywhere. Set it for the drawing with `DIMARROW` or the Properties palette, or per dimension in the palette (Arrowheads).
 - **Interface:** ribbon, command line with autocomplete and history, dynamic input tooltip, window/crossing selection, right-click menus, undo/redo
 - **Files:** open DWG (R14 through 2018+), DXF and DraftForgeCAD `.dfg`; save `.dfg` or DXF R12; export SVG, PNG and PDF
 

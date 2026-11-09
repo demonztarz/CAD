@@ -267,7 +267,10 @@
     const L = dist(d1, d2), u = L > 1e-12 ? mul(sub(d2, d1), 1 / L) : dir;
     return { p1, p2, dir, n, d1, d2, meas, u, L };
   }
-  function dimGeometry(e, prec = 2, trim = true) {
+  // opts: { prec, trim, arrow } (arrow = drawing default 'auto' | 'arrow' | 'tick'); also (e, prec, trim)
+  function dimGeometry(e, opts = 2, trimArg = true) {
+    const o = typeof opts === 'object' && opts ? opts : { prec: opts, trim: trimArg };
+    const prec = o.prec ?? 2, trim = o.trim !== false;
     const h = e.h || 2.5, asz = e.asz || h, gap = h * 0.25, ext = h * 0.5;
     const out = [];
     const arrow = (tip, dir) => {
@@ -342,7 +345,16 @@
     } else side = textIn ? 0 : dot(sub(loc, d1), u) < 0 ? -1 : 1;
     if (side !== 0 && !at) at = add(side > 0 ? d2 : d1, mul(u, side * ((arrowsIn ? gap : 2 * asz + gap) + tw / 2)));
     if (!at) at = mid(d1, d2);
-    if (arrowsIn) { if (L > 1e-12) { arrow(d1, mul(u, -1)); arrow(d2, u); } }
+    // Arrowheads: 'arrow' (flipped outside when they do not fit), 'tick' (architectural ticks always),
+    // 'auto' (arrows when they fit, ticks when they do not). Per dimension (e.arrow) or the drawing default.
+    const style = e.arrow || o.arrow || 'auto';
+    if (style === 'tick' || (style === 'auto' && !arrowsIn)) {
+      // a 45-degree stroke centred on each extension line; the dimension line runs a little past them
+      const t = mul(add(u, perp(u)), asz * 0.35);
+      for (const d of [d1, d2]) seg(sub(d, t), add(d, t));
+      if (side !== -1) seg(sub(d1, mul(u, asz * 0.6)), d1);
+      if (side !== 1) seg(d2, add(d2, mul(u, asz * 0.6)));
+    } else if (arrowsIn) { if (L > 1e-12) { arrow(d1, mul(u, -1)); arrow(d2, u); } }
     else {
       // outside, pointing at the extension lines, each with a tail (the text side's line runs under the text)
       arrow(d1, u); arrow(d2, mul(u, -1));
@@ -469,7 +481,7 @@
       case 'hatch': for (const l of e.loops) polyPrims(l, true, out); break;
       case 'viewport': polyPrims([P(e.x, e.y), P(e.x + e.w, e.y), P(e.x + e.w, e.y + e.h), P(e.x, e.y + e.h)], true, out); break;
       case 'image': polyPrims(imageCorners(e), true, out); break; // picked and snapped by its frame
-      case 'dim': for (const s of dimGeometry(e, ctx && ctx.dimPrec, !(ctx && ctx.dimTrim === false))) out.push(...primsOf(s, ctx)); break;
+      case 'dim': for (const s of dimGeometry(e, (ctx && ctx.dim) || {})) out.push(...primsOf(s, ctx)); break;
       case 'insert': {
         const blk = ctx && ctx.blocks && ctx.blocks[e.name];
         if (!blk || (ctx.depth || 0) > 12) { out.push({ k: 'L', a: P(e.x, e.y), b: P(e.x, e.y), pt: true }); break; }

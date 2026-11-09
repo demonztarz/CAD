@@ -687,6 +687,12 @@
           s.addEventListener('change', () => { S.runningName = 'Dim trailing zeros'; S.mark(); S.doc.settings.dimTrimZeros = s.value === 'hide'; S.endOp(); S.clearCaches(); S.render(); S.emit('doc'); });
           return row('Dim trailing zeros', s);
         })(),
+        (() => {
+          const s = h('select', { title: 'DIMARROW' }, h('option', { value: 'auto' }, 'Auto (ticks when tight)'), h('option', { value: 'arrow' }, 'Arrow'), h('option', { value: 'tick' }, 'Tick'));
+          s.value = S.doc.settings.dimArrow || 'auto';
+          s.addEventListener('change', () => { S.runningName = 'Dim arrowheads'; S.mark(); S.doc.settings.dimArrow = s.value; S.endOp(); S.clearCaches(); S.render(); S.emit('doc'); });
+          return row('Dim arrowheads', s);
+        })(),
       ]));
       return;
     }
@@ -751,10 +757,13 @@
           rows.push(num('Position X', (e) => e.x, (e, v) => ({ ...e, x: v })), num('Position Y', (e) => e.y, (e, v) => ({ ...e, y: v })));
           break;
         case 'dim':
-          if (one) { const txt = (G.dimGeometry(one, S.doc.settings.dimPrec, S.dimTrim()).find((g) => g.type === 'text') || {}).text; rows.push(row('Measurement', ro(txt || ''))); }
+          if (one) { const txt = (G.dimGeometry(one, S.dimOpts()).find((g) => g.type === 'text') || {}).text; rows.push(row('Measurement', ro(txt || ''))); }
           rows.push(str('Text override', (e) => e.text || '', (e, v) => { const n = { ...e }; if (v) n.text = v; else delete n.text; return n; }),
             num('Text height', (e) => e.h || 2.5, (e, v) => (v > 0 ? { ...e, h: v } : e)));
           if (list.every((e) => !['radius', 'diameter', 'angular'].includes(e.kind))) {
+            const dflt = { auto: 'Auto', arrow: 'Arrow', tick: 'Tick' }[S.doc.settings.dimArrow || 'auto'];
+            rows.push(sel('Arrowheads', [['default', `Drawing default (${dflt})`], ['auto', 'Auto'], ['arrow', 'Arrow'], ['tick', 'Tick']],
+              (e) => e.arrow || 'default', (e, v) => { const n = { ...e }; if (v === 'default') delete n.arrow; else n.arrow = v; return n; }));
             rows.push(sel('Text position', [['auto', 'Auto'], ['left', 'Left'], ['right', 'Right'], ['center', 'Center'], ['moved', 'Moved (DIMTEDIT)']],
               (e) => (typeof e.tpos === 'number' ? 'moved' : e.tpos || 'auto'),
               (e, v) => { if (v === 'moved') return e; const n = { ...e }; if (v === 'auto') delete n.tpos; else n.tpos = v; return n; }));
@@ -1217,7 +1226,7 @@
           out.push(e.pattern === 'SOLID' ? `<path d="${d}" fill="${css}" fill-rule="evenodd"/>` : `<path d="${d}" fill="${css}" fill-opacity="0.25" fill-rule="evenodd" stroke="${css}" stroke-width="0.5" vector-effect="non-scaling-stroke"/>`);
           break;
         }
-        case 'dim': for (const g of G.dimGeometry(e, S.doc.settings.dimPrec, S.dimTrim())) emit({ ...g, layer: e.layer, color: e.color }, inh); break;
+        case 'dim': for (const g of G.dimGeometry(e, S.dimOpts())) emit({ ...g, layer: e.layer, color: e.color }, inh); break;
         case 'insert': {
           const blk = S.doc.blocks[e.name];
           if (blk) {

@@ -132,7 +132,7 @@ test('break line: zigzag centred on the line, kept inside it, with extension', (
 
 test('narrow dimensions move arrows and then text outside the extension lines', () => {
   // h = arrow size = 2.5; default text width is 0.72 h per character ("70" is 3.6 wide)
-  const dim = (x2, extra) => G.dimGeometry({ type: 'dim', kind: 'horizontal', x1: 0, y1: 0, x2, y2: 0, lx: x2 / 2, ly: 10, h: 2.5, ...extra }, 0);
+  const dim = (x2, extra) => G.dimGeometry({ type: 'dim', kind: 'horizontal', x1: 0, y1: 0, x2, y2: 0, lx: x2 / 2, ly: 10, h: 2.5, arrow: 'arrow', ...extra }, 0);
   const parts = (g) => ({ text: g.find((x) => x.type === 'text'), tips: g.filter((x) => x.type === 'solid').map((x) => x.pts[0].x), backs: g.filter((x) => x.type === 'solid').map((x) => x.pts[1].x) });
   // wide: all inside, arrow bodies between the extension lines
   let r = parts(dim(70));
@@ -158,6 +158,22 @@ test('narrow dimensions move arrows and then text outside the extension lines', 
   r = parts(G.dimGeometry({ type: 'dim', kind: 'horizontal', x1: 0, y1: 0, x2: 3, y2: 0, lx: -4, ly: 10, h: 2.5, text: '70' }, 0));
   assert.strictEqual(g.filter((x) => x.type === 'line' && x.y1 === 10 && Math.min(x.x1, x.x2) >= 3).length, 1, 'no duplicate tail under the text');
   assert.ok(r.text.x + 3.6 / 2 < 0, 'text on the left');
+});
+
+test('arrowheads: auto uses ticks only when arrows do not fit; tick and arrow settings', () => {
+  const base = { type: 'dim', kind: 'horizontal', x1: 0, y1: 0, y2: 0, ly: 10, h: 2.5 }; // arrows need 2.5 x 2.5 = 6.25
+  const g = (x2, extra, opts) => G.dimGeometry({ ...base, x2, lx: x2 / 2, ...extra }, { prec: 0, ...opts });
+  const solids = (geo) => geo.filter((x) => x.type === 'solid').length;
+  const ticks = (geo) => geo.filter((x) => x.type === 'line' && Math.abs(Math.abs(x.x2 - x.x1) - Math.abs(x.y2 - x.y1)) < 1e-9 && x.x2 !== x.x1);
+  assert.strictEqual(solids(g(20)), 2); assert.strictEqual(ticks(g(20)).length, 0);           // auto, room: arrows
+  assert.strictEqual(solids(g(5)), 0); assert.strictEqual(ticks(g(5)).length, 2);             // auto, narrow: ticks
+  const t = ticks(g(5));
+  near((t[0].x1 + t[0].x2) / 2, 0); near((t[0].y1 + t[0].y2) / 2, 10);                         // centred on the extension line
+  assert.strictEqual(solids(g(20, {}, { arrow: 'tick' })), 0);                                   // drawing default: ticks
+  assert.strictEqual(solids(g(5, {}, { arrow: 'arrow' })), 2);                                   // drawing default: arrows
+  assert.ok(g(5, {}, { arrow: 'arrow' }).filter((x) => x.type === 'solid').every((x) => x.pts[1].x < 0 || x.pts[1].x > 5)); // flipped outside
+  assert.strictEqual(solids(g(20, { arrow: 'tick' }, { arrow: 'arrow' })), 0);                   // per dimension wins
+  assert.strictEqual(solids(G.dimGeometry({ ...base, x2: 5, lx: 2.5 }, 0)), 0);                  // old (e, prec) calls: auto
 });
 
 test('dimension text position: left / right / moved / angle (DIMTEDIT)', () => {

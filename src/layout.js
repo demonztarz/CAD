@@ -420,7 +420,7 @@
           out.push(`<clipPath id="${id}"><path d="${d}" clip-rule="evenodd"/></clipPath><path clip-path="url(#${id})" d="${segs.map((g) => `M${n(g[0])} ${n(g[1])}L${n(g[2])} ${n(g[3])}`).join('')}" stroke="${col}" stroke-width="${n(0.13 * u)}" fill="none"/>`);
           return;
         }
-        case 'dim': for (const g of G.dimGeometry(e, S.doc.settings.dimPrec ?? 2, S.dimTrim())) emit({ ...g, layer: e.layer, color: e.color, lw: e.lw }, inh, k, vr); return;
+        case 'dim': for (const g of G.dimGeometry(e, S.dimOpts())) emit({ ...g, layer: e.layer, color: e.color, lw: e.lw }, inh, k, vr); return;
         case 'insert': {
           const blk = S.doc.blocks[e.name];
           if (blk) {

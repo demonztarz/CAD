@@ -318,7 +318,7 @@
     const o = [];
     const w = (c, v) => { o.push(String(c)); o.push(typeof v === 'number' ? fmt(v) : String(v)); };
     const fmt = (v) => { if (!isFinite(v)) return '0.0'; const s = (+v).toFixed(10).replace(/0+$/, '').replace(/\.$/, '.0'); return s === '-0.0' ? '0.0' : s; };
-    const ctx = { blocks: doc.blocks || {}, dimPrec: (doc.settings && doc.settings.dimPrec) ?? 2, dimTrim: !(doc.settings && doc.settings.dimTrimZeros === false) };
+    const st = doc.settings || {}, ctx = { blocks: doc.blocks || {}, dim: { prec: st.dimPrec ?? 2, trim: st.dimTrimZeros !== false, arrow: st.dimArrow || 'auto' } };
     const safe = (s) => String(s).replace(/[\r\n]+/g, ' ');
     const aci = (c) => (c == null ? 256 : c === 0 ? 0 : typeof c === 'string' ? G.aciFromRgb(c) : c);
 
@@ -404,7 +404,7 @@
           for (const l of e.loops) polyline(l.map((p) => ({ x: p.x, y: p.y, b: 0 })), true);
           break;
         case 'dim':
-          for (const g of G.dimGeometry(e, ctx.dimPrec, ctx.dimTrim)) emit({ ...g, layer: e.layer, color: e.color }, inBlock);
+          for (const g of G.dimGeometry(e, ctx.dim)) emit({ ...g, layer: e.layer, color: e.color }, inBlock);
           break;
         case 'insert':
           if (!ctx.blocks[e.name]) break;
