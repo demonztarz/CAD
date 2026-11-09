@@ -287,6 +287,14 @@
     if (w === undefined) { w = mctx.measureText(s).width / (CAP * FONT_PX); if (measureCache.size > 20000) measureCache.clear(); measureCache.set(s, w); }
     return w * h;
   };
+  // the font actually used may have taller or shorter capitals than Arial's
+  G.TEXT.cap = (mctx.measureText('H').actualBoundingBoxAscent || CAP * FONT_PX) / (CAP * FONT_PX);
+  const inkCache = new Map();
+  G.TEXT.ink = (s, h) => {
+    let k = inkCache.get(s);
+    if (!k) { const m = mctx.measureText(s); k = { l: -m.actualBoundingBoxLeft / (CAP * FONT_PX), r: m.actualBoundingBoxRight / (CAP * FONT_PX) }; if (inkCache.size > 20000) inkCache.clear(); inkCache.set(s, k); }
+    return { l: k.l * h, r: k.r * h };
+  };
 
   // draw context state for batched stroking
   function Painter(ctx, opts) {
@@ -802,7 +810,7 @@
     const tess = e.type === 'ellipse' || e.type === 'spline' || e.type === 'text' || e.type === 'hatch';
     if (e.type === 'point') add('nod', P(e.x, e.y));
     if (e.type === 'text' || e.type === 'insert') add('ins', P(e.x, e.y));
-    if (e.type === 'text') { for (const c of G.textCorners(e)) add('end', c); add('mid', G.textCenter(e)); } // its box, like other objects
+    if (e.type === 'text') { for (const c of G.textInkCorners(e)) add('end', c); add('mid', G.textCenter(e)); } // its visible box, like other objects
     if (e.type === 'ellipse') {
       add('cen', P(e.cx, e.cy));
       if (G.isFullEllipse(e)) for (const t of [0, Math.PI / 2, Math.PI, 1.5 * Math.PI]) add('qua', G.ellipsePoint(e, t));
@@ -813,7 +821,7 @@
       if (p.k === 'L') {
         if (p.pt) continue;
         if (!tess) { add('end', p.a, p); add('end', p.b, p); add('mid', G.mid(p.a, p.b)); }
-        if (base && modes.has('per')) {
+        if (base && modes.has('per') && e.type !== 'text') {
           const ab = G.sub(p.b, p.a), L2 = G.dot(ab, ab);
           if (L2 > 1e-24) { const t = G.dot(G.sub(base, p.a), ab) / L2; if (t >= -1e-9 && t <= 1 + 1e-9) add('per', G.add(p.a, G.mul(ab, t))); }
         }
@@ -851,7 +859,8 @@
     const modes = S.oneShot ? new Set([S.oneShot]) : S.st.osmodes;
     if (modes.has('int') && near.length) {
       const prs = [];
-      for (const e of near) for (const p of S.prims(e)) if (!p.pt && G.distToPrim(w, p) < tolW * 2) prs.push(p);
+      // a text's pick box is not geometry: its edges give no intersections
+      for (const e of near) if (e.type !== 'text') for (const p of S.prims(e)) if (!p.pt && G.distToPrim(w, p) < tolW * 2) prs.push(p);
       for (let i = 0; i < prs.length && i < 200; i++) for (let j = i + 1; j < prs.length && j < 200; j++) {
         for (const p of G.primInter(prs[i], prs[j])) consider({ kind: 'int', p });
       }
@@ -1016,7 +1025,7 @@
       case 'ellipse': add(P(e.cx, e.cy), 'c'); add(P(e.cx + e.mx, e.cy + e.my), 'maj'); add(G.ellipsePoint(e, Math.PI / 2), 'min'); break;
       case 'spline': (e.fit || e.ctrl || []).forEach((p, i) => add(P(p.x, p.y), 's' + i)); break;
       case 'text': {
-        const ins = P(e.x, e.y), cs = G.textCorners(e);
+        const ins = P(e.x, e.y), cs = G.textInkCorners(e);
         add(ins, 'pos');
         cs.forEach((c, i) => { if (!G.same(c, ins, 1e-9)) add(c, 'k' + i); });
         add(G.textCenter(e), 'tc');

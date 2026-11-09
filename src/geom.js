@@ -173,6 +173,9 @@
   // ---------- text metrics (pluggable) ----------
   const TEXT = {
     measure: (str, h) => str.length * h * 0.72, // overridden by the UI with canvas metrics
+    // horizontal extent of the visible glyphs, from the line's start (overridden by the UI)
+    ink: (str, h) => ({ l: 0, r: TEXT.measure(str, h) }),
+    cap: 1, // real capital height as a fraction of the text height, for the font in use (set by the UI)
     lineGap: 1.6667,
   };
   // Text layout in local coordinates (before rotation). `oy` is the first line's baseline.
@@ -195,8 +198,24 @@
     const b = textBox(e), m = M.mul(M.translate(e.x, e.y), M.rotate(e.rot || 0));
     return [P(b.x0, b.y0), P(b.x1, b.y0), P(b.x1, b.y1), P(b.x0, b.y1)].map((p) => M.apply(m, p));
   }
-  // exact centre of the text's box
-  function textCenter(e) { const c = textCorners(e); return P((c[0].x + c[2].x) / 2, (c[0].y + c[2].y) / 2); }
+  // Tight box around the visible text, for snap points and grips: from the last line's baseline to the
+  // cap top of the first, and from the leftmost to the rightmost ink (textCorners is the roomier pick box).
+  function textInkCorners(e) {
+    const b = textBox(e), wf = e.wf || 1;
+    let l = Infinity, r = -Infinity;
+    for (const ln of b.lines) {
+      if (!ln.trim()) continue;
+      const adv = TEXT.measure(ln, b.h), ink = TEXT.ink(ln, b.h);
+      const start = e.ha === 'center' || e.ha === 'middle' ? -adv / 2 : e.ha === 'right' ? -adv : 0; // as drawn
+      l = Math.min(l, start + ink.l); r = Math.max(r, start + ink.r);
+    }
+    if (!isFinite(l)) { l = b.x0; r = b.x1; }
+    const top = b.oy + b.h * TEXT.cap, bot = b.oy - (b.lines.length - 1) * b.gap;
+    const m = M.mul(M.translate(e.x, e.y), M.rotate(e.rot || 0));
+    return [P(l * wf, bot), P(r * wf, bot), P(r * wf, top), P(l * wf, top)].map((p) => M.apply(m, p));
+  }
+  // exact centre of the visible text
+  function textCenter(e) { const c = textInkCorners(e); return P((c[0].x + c[2].x) / 2, (c[0].y + c[2].y) / 2); }
 
   // ---------- dimensions (generated geometry) ----------
   function fmtNum(v, prec = 2) {
@@ -990,7 +1009,7 @@
   const api = {
     TAU, EPS, P, add, sub, mul, dot, cross, len, dist, norm, perp, lerp, mid, ang, polar, same, normAng, sweep, angInArc, rad, deg,
     M, ACI, aciFromRgb, bulgeArc, bulgeFromSweep, catmull, nurbs, splinePoints, ellipsePoint, ellipsePoints, isFullEllipse,
-    TEXT, textBox, textCorners, textCenter, fmtNum, fmtDim, dimFrame, dimGeometry, imageCorners, imageMatrix, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
+    TEXT, textBox, textCorners, textInkCorners, textCenter, fmtNum, fmtDim, dimFrame, dimGeometry, imageCorners, imageMatrix, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
     prims, primsOf, flatPrims, transformPrim, arcPoints, primBox, bbox, closestOnSeg, closestOnPrim, distToPrim, pointInPoly,
     segSeg, lineCircle, circleCircle, primInter, primParam, primAt, primLength, plinePrims, polyPrims,
     plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, filletLines, chamferLines,
