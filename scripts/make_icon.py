@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Draw the DraftForgeCAD icon (1024 x 1024 PNG) with Pillow.
 
-Usage: python3 scripts/make_icon.py [output.png]   (default: build/icon-next.png)
+Usage: python3 scripts/make_icon.py [output.png]   (default: build/icon.png)
 
 A blue-to-teal rounded tile with a white drafting grid, an arc, a U-shaped outline and a
 yellow CAD crosshair. Everything is laid out on a 1024 px canvas and drawn at 4x, then
@@ -65,4 +65,4 @@ def main(out):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1] if len(sys.argv) > 1 else 'build/icon-next.png')
+    main(sys.argv[1] if len(sys.argv) > 1 else 'build/icon.png')
