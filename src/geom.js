@@ -280,7 +280,8 @@
     // place text centred on `at`, lifted by `gap` on the reading-up side
     const label = (at, rot, val) => {
       let r = normAng(rot);
-      if (r > Math.PI / 2 + 1e-9 && r <= Math.PI * 1.5 + 1e-9) r -= Math.PI;
+      // automatic text is turned to read upright; an angle set with DIMTEDIT is kept exactly as given
+      if (e.tang == null && r > Math.PI / 2 + 1e-9 && r <= Math.PI * 1.5 + 1e-9) r -= Math.PI;
       const pos = polar(at, r + Math.PI / 2, gap);
       const txt = e.text != null && e.text !== '' ? String(e.text).replace('<>', val) : val;
       out.push({ type: 'text', x: pos.x, y: pos.y, h, rot: r, text: txt, ha: 'center', va: 'bottom' });

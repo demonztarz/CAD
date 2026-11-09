@@ -200,6 +200,11 @@ test('dimension text position: left / right / moved / angle (DIMTEDIT)', () => {
   assert.ok(g.some((x) => x.type === 'line' && x.y1 === 10 && x.y2 === 10 && Math.min(x.x1, x.x2) === 40 && Math.max(x.x1, x.x2) >= 55 + 1.8));
   // rotated text
   near(textOf({ tang: Math.PI / 4 }).rot, Math.PI / 4);
+  // a chosen angle is kept even when it reads downward (it used to flip back to the upright angle)
+  const vert = { type: 'dim', kind: 'vertical', x1: 0, y1: 0, x2: 0, y2: 40, lx: 10, ly: 20, h: 2.5 };
+  near(G.dimGeometry(vert, 0).find((g) => g.type === 'text').rot, Math.PI / 2);                     // automatic: upright
+  near(G.dimGeometry({ ...vert, tang: G.rad(270) }, 0).find((g) => g.type === 'text').rot, 1.5 * Math.PI); // chosen: top to bottom
+  near(G.dimGeometry({ ...vert, tang: G.rad(180) }, 0).find((g) => g.type === 'text').rot, Math.PI);
   // frame helper used by DIMTEDIT
   const f = G.dimFrame(base);
   nearP(f.d1, 0, 10); nearP(f.d2, 40, 10); near(f.L, 40);
