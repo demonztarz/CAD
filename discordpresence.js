@@ -51,6 +51,18 @@ class Presence {
     if (typeof console !== 'undefined' && !this.quiet) console.log('[discord]', status);
   }
 
+  // why no connection point answered, from the error each one gave
+  notFoundReason() {
+    const t = this.tried || [], codes = new Set(t.map((x) => x.code));
+    const where = process.platform === 'win32' ? 'pipes discord-ipc-0 to 9' : `sockets discord-ipc-0 to 9 in ${[...new Set(t.map((x) => path.dirname(x.path)))].join(', ')}`;
+    if (codes.has('EACCES') || codes.has('EPERM')) {
+      return `Discord found but access was denied (${[...codes].join(', ')}). Usually one of DraftForgeCAD and Discord runs "as administrator" and the other does not: run both normally. Retrying every 30 s.`;
+    }
+    const other = [...codes].filter((c) => c !== 'ENOENT');
+    return `Discord not found: no Discord connection point exists (checked ${where}${other.length ? '; errors: ' + other.join(', ') : ''}). ` +
+      'The official Discord desktop app creates one while it is running; the browser version and some third-party clients (e.g. Vesktop without arRPC) do not. Retrying every 30 s.';
+  }
+
   describe() { return { enabled: this.enabled, ready: this.ready, status: this.status, lastError: this.lastError }; }
 
   get enabled() { return /^\d{5,30}$/.test(this.clientId); }
@@ -79,8 +91,9 @@ class Presence {
 
   connect(index = 0) {
     if (this.sock || this.stopped || !this.enabled) return;
+    if (index === 0) this.tried = [];
     if (index >= this.paths.length) {
-      this.note('Discord not found: the Discord desktop app is not running (the browser version cannot show statuses). Retrying every 30 s.');
+      this.note(this.notFoundReason(), true);
       this.retryLater(); return;
     }
     const sock = net.createConnection(this.paths[index]);
@@ -93,7 +106,11 @@ class Presence {
       this.note('Found Discord, waiting for it to accept the connection...');
     });
     sock.on('data', (d) => this.onData(d));
-    sock.on('error', () => { if (!opened) { sock.destroy(); this.connect(index + 1); } });
+    sock.on('error', (err) => {
+      if (opened) return;
+      this.tried.push({ path: this.paths[index], code: (err && err.code) || 'error' });
+      sock.destroy(); this.connect(index + 1);
+    });
     sock.on('close', () => {
       if (!opened) return;
       this.sock = null; this.ready = false; this.sent = undefined;

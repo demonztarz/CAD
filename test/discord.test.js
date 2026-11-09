@@ -116,7 +116,14 @@ const until = async (fn, ms = 2000) => { const t = Date.now(); while (!fn()) { i
     const p = new Presence('123456789012345678', { quiet: true, paths: [path.join(dir, 'nothing-here')], retryMs: 10000 });
     p.set({ details: 'x' });
     await until(() => /not found/.test(p.status));
+    assert.ok(/no Discord connection point exists/.test(p.status), p.status);
     p.stop();
+  });
+
+  await test('status: access denied names the administrator mismatch', async () => {
+    const p = new Presence('123456789012345678', { quiet: true, paths: [] });
+    p.tried = [{ path: 'x', code: 'ENOENT' }, { path: 'y', code: 'EACCES' }];
+    assert.ok(/access was denied \(ENOENT, EACCES\).*as administrator/.test(p.notFoundReason()), p.notFoundReason());
   });
 
   fs.rmSync(dir, { recursive: true, force: true });
