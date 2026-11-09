@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('desktop', {
   confirmDiscard: (name) => ipcRenderer.invoke('confirm-discard', name),
   setTitle: (t) => ipcRenderer.send('set-title', t),
   presence: (info) => ipcRenderer.send('presence', info),
+  presenceStatus: () => ipcRenderer.invoke('presence-status'),
   reallyClose: () => ipcRenderer.send('really-close'),
   onMenu: (fn) => ipcRenderer.on('menu', (_e, cmd) => fn(cmd)),
   onFileOpened: (fn) => ipcRenderer.on('file-opened', (_e, f) => fn(f)),

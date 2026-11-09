@@ -8,7 +8,7 @@ const pkg = require('./package.json');
 // Discord Rich Presence: the status shows the Discord application's name (DraftForgeCAD) and
 // "Working on <file>". Needs the application ID from the Discord Developer Portal.
 const presence = new Presence(process.env.DRAFTFORGE_DISCORD_CLIENT_ID || pkg.discordClientId || '');
-const startedAt = Math.floor(Date.now() / 1000);
+const startedAt = Date.now(); // Discord activity timestamps are in milliseconds
 
 // Keep using the settings folder from before the rename to DraftForgeCAD (settings, recent files)
 app.setPath('userData', path.join(app.getPath('appData'), 'DraftForge'));
@@ -195,6 +195,8 @@ ipcMain.on('presence', (_e, info) => {
     ...(pkg.discordLargeImage ? { assets: { large_image: pkg.discordLargeImage, large_text: 'DraftForgeCAD' } } : {}),
   });
 });
+
+ipcMain.handle('presence-status', () => presence.describe());
 
 ipcMain.on('really-close', () => {
   forceClose = true;

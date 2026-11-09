@@ -1125,10 +1125,18 @@
     { aliases: ['AI_SELALL'], desc: 'Selects all objects (Ctrl+A)', group: 'Edit', noUndo: true, pickfirst: false });
 
   R('NEW', () => S.fileNew(), { aliases: ['QNEW'], desc: 'Creates a new drawing', group: 'File', noUndo: true, pickfirst: false });
-  R('DISCORD', () => {
+  R('DISCORD', async () => {
     S.st.discord = S.st.discord === false;
     S.saveSettings(); S.updateTitle();
     S.msg(S.st.discord ? '<Discord status on: shows "Working on" the current drawing>' : '<Discord status off>');
+    // report how the connection to Discord is doing (desktop app only)
+    const desk = window.desktop;
+    if (!desk || !desk.presenceStatus) { S.msg('Discord status needs the DraftForgeCAD desktop app.'); return; }
+    if (!S.st.discord) return;
+    await new Promise((r) => setTimeout(r, 2500)); // give a fresh connection a moment
+    const st = await desk.presenceStatus();
+    S.msg(`Discord: ${st.status}`, st.lastError && !st.ready ? 'err' : undefined);
+    if (st.lastError && st.lastError !== st.status) S.msg(`Last Discord error: ${st.lastError}`, 'err');
   }, { aliases: ['DISCORDPRESENCE'], desc: 'Turns the Discord "Working on <drawing>" status on or off', group: 'Settings', noUndo: true, pickfirst: false });
   R('CLOSE', () => S.closeTab(), { desc: 'Closes the current drawing (asks to save changes)', group: 'File', noUndo: true, pickfirst: false });
   R('OPEN', () => S.fileOpen(), { desc: 'Opens a DWG, DXF or DraftForgeCAD drawing', group: 'File', noUndo: true, pickfirst: false });

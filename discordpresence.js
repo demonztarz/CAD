@@ -31,6 +31,7 @@ class Presence {
     this.paths = opts.paths || socketPaths();
     this.retryMs = opts.retryMs ?? RETRY_MS;
     this.sendDelayMs = opts.sendDelayMs ?? SEND_DELAY_MS;
+    this.quiet = !!opts.quiet;
     this.sock = null;
     this.ready = false;
     this.activity = null;
@@ -39,7 +40,18 @@ class Presence {
     this.retryTimer = null;
     this.sendTimer = null;
     this.stopped = false;
+    // what happened last, for the DISCORD command (and the console)
+    this.status = this.enabled ? 'Not connected yet.' : 'Off: no Discord application ID is set.';
+    this.lastError = null;
   }
+
+  note(status, isError) {
+    this.status = status;
+    if (isError) this.lastError = status;
+    if (typeof console !== 'undefined' && !this.quiet) console.log('[discord]', status);
+  }
+
+  describe() { return { enabled: this.enabled, ready: this.ready, status: this.status, lastError: this.lastError }; }
 
   get enabled() { return /^\d{5,30}$/.test(this.clientId); }
 
@@ -67,7 +79,10 @@ class Presence {
 
   connect(index = 0) {
     if (this.sock || this.stopped || !this.enabled) return;
-    if (index >= this.paths.length) { this.retryLater(); return; }
+    if (index >= this.paths.length) {
+      this.note('Discord not found: the Discord desktop app is not running (the browser version cannot show statuses). Retrying every 30 s.');
+      this.retryLater(); return;
+    }
     const sock = net.createConnection(this.paths[index]);
     let opened = false;
     sock.on('connect', () => {
@@ -75,12 +90,15 @@ class Presence {
       this.sock = sock;
       this.buf = Buffer.alloc(0);
       sock.write(encode(OP_HANDSHAKE, { v: 1, client_id: this.clientId }));
+      this.note('Found Discord, waiting for it to accept the connection...');
     });
     sock.on('data', (d) => this.onData(d));
     sock.on('error', () => { if (!opened) { sock.destroy(); this.connect(index + 1); } });
     sock.on('close', () => {
       if (!opened) return;
       this.sock = null; this.ready = false; this.sent = undefined;
+      if (!this.lastClose) this.note('Discord closed the connection. Retrying every 30 s.');
+      this.lastClose = null;
       this.retryLater();
     });
   }
@@ -94,8 +112,20 @@ class Presence {
       try { msg = JSON.parse(this.buf.subarray(8, 8 + len).toString('utf8')); } catch (_) { /* ignore malformed frame */ }
       this.buf = this.buf.subarray(8 + len);
       if (op === OP_PING) this.sock.write(encode(OP_PONG, msg || {}));
-      else if (op === OP_CLOSE) this.sock.destroy();
-      else if (op === OP_FRAME && msg && msg.evt === 'READY') { this.ready = true; this.flush(); }
+      else if (op === OP_CLOSE) { // e.g. an unknown application ID
+        this.lastClose = true;
+        this.note(`Discord refused the connection: ${(msg && msg.message) || 'no reason given'} (code ${msg && msg.code}).`, true);
+        this.sock.destroy();
+      } else if (op === OP_FRAME && msg && msg.evt === 'READY') {
+        this.ready = true;
+        const u = msg.data && msg.data.user;
+        this.note(`Connected to Discord${u && u.username ? ' as ' + u.username : ''}.`);
+        this.flush();
+      } else if (op === OP_FRAME && msg && msg.evt === 'ERROR') {
+        this.note(`Discord rejected the status: ${(msg.data && msg.data.message) || 'unknown error'} (code ${msg.data && msg.data.code}).`, true);
+      } else if (op === OP_FRAME && msg && msg.cmd === 'SET_ACTIVITY' && !msg.evt) {
+        this.note(this.activity ? `Showing on Discord: ${this.activity.details}.` : 'Status cleared on Discord.');
+      }
     }
   }
 
