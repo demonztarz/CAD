@@ -44,6 +44,7 @@ code-signed. Choose **More info → Run anyway**.
 - **Ribbon:** panels show their everyday tools; click a panel title with ▾ for the rest (the pin keeps it open). On wide screens the extra tools appear on the ribbon itself. Insert Block, Measure and Paste are stacked as symbols, each with its own ▾. On narrow windows panels fold into one button that opens the whole panel; Draw and Modify stay open, and the layer and property dropdowns fold last.
 - **Text box points:** every text object has its four box corners and exact centre as snap points (Endpoint and Midpoint snaps) and grips, so text can be placed, aligned or moved by any of them.
 - **Dimension arrowheads:** Auto (default) uses arrows where they fit and architectural ticks on narrow dimensions; Arrow flips arrows outside instead; Tick uses ticks everywhere. Set it for the drawing with `DIMARROW` or the Properties palette, or per dimension in the palette (Arrowheads).
+- **Touchpads:** a two-finger swipe pans the view and a pinch zooms around the pointer; a mouse wheel still zooms in steps (the two are told apart automatically).
 - **Interface:** ribbon, command line with autocomplete and history, dynamic input tooltip, window/crossing selection, right-click menus, undo/redo
 - **Files:** open DWG (R14 through 2018+), DXF and DraftForgeCAD `.dfg`; save `.dfg` or DXF R12; export SVG, PNG and PDF
 

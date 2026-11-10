@@ -1456,10 +1456,18 @@
   }
   ov.addEventListener('mousemove', onMove);
   ov.addEventListener('mouseleave', () => { S.mouse.inside = false; S.hover = null; S.overlay(); S.emit('cursor'); });
+  // Mouse wheel zooms in steps. Touchpad: a two-finger swipe pans, a pinch (sent as Ctrl+wheel) zooms
+  // smoothly. A touchpad sends a stream of small or sideways deltas, a mouse wheel whole notches (~100).
+  let padUntil = 0;
   ov.addEventListener('wheel', (ev) => {
     ev.preventDefault();
-    const r = ov.getBoundingClientRect();
-    S.zoomAt(ev.clientX - r.left, ev.clientY - r.top, ev.deltaY < 0 ? 1.2 : 1 / 1.2);
+    const r = ov.getBoundingClientRect(), sx = ev.clientX - r.left, sy = ev.clientY - r.top;
+    const k = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? 400 : 1, dx = ev.deltaX * k, dy = ev.deltaY * k, now = performance.now();
+    if (ev.ctrlKey) S.zoomAt(sx, sy, Math.min(1.25, Math.max(0.8, Math.exp(-dy * 0.01))));
+    else if (dx !== 0 || (ev.deltaMode === 0 && Math.abs(dy) < 50) || now < padUntil) {
+      padUntil = now + 300; // the rest of this swipe pans too, even if one event is large
+      S.view.cx += dx / S.view.scale; S.view.cy -= dy / S.view.scale; S.render();
+    } else S.zoomAt(sx, sy, dy < 0 ? 1.2 : 1 / 1.2);
     onMove(ev);
   }, { passive: false });
   let lastMiddle = 0;
