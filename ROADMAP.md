@@ -14,6 +14,15 @@ planning a version. Newest discussions are at the top of each section.
 - **Dynamic input extras** – `#` prefix for absolute coordinates, and typing a comma in the X field
   jumping to the Y field, as in AutoCAD.
 
+## Isometric drafting
+
+- **Isometric axis indicator** – in isometric mode, show the three iso axes in the corner icon,
+  labelled X (30°), Y (150°) and Z (up), instead of the flat X/Y icon. A visual aid only; the
+  drawing stays 2D.
+- **Iso-style coordinate entry** – type three distances (e.g. `#iso 50,30,20`) to place a point 50
+  along X, 30 along Y and 20 up Z, converted to the flat position. Handy for boxes from real
+  dimensions; a bigger change than the indicator.
+
 ## Snap mode (F9)
 
 - **Make it obvious** – a short "Snap on (10 units)" note near the cursor when it turns on, and a more
