@@ -1060,10 +1060,14 @@
   async function closeTab(i) {
     if (i == null) i = curTab;
     if (!docTabs[i]) return false;
+    // closing a background tab: show it for the save prompt, then come back to the drawing you were on
+    const backTo = i !== curTab ? S.doc : null;
+    const backIndex = () => docTabs.findIndex((t, k) => k !== curTab && t && t.doc === backTo);
     if (i !== curTab) await switchTab(i); else await stopCommand();
-    if (!(await confirmDiscard())) return false;
+    if (!(await confirmDiscard())) { if (backTo && backIndex() >= 0) await switchTab(backIndex()); return false; }
     docTabs.splice(curTab, 1);
     if (!docTabs.length) { curTab = 0; newDrawingTab(); }
+    else if (backTo && backIndex() >= 0) enterTab(backIndex());
     else enterTab(Math.min(curTab, docTabs.length - 1));
     return true;
   }
@@ -1076,12 +1080,40 @@
     bar.append(h('div', { cls: 'ftab start', title: 'Start', onclick: () => showStart() }, 'Start'));
     docTabs.forEach((_, i) => {
       const f = tabFile(i);
-      bar.append(h('div', { cls: 'ftab' + (i === curTab ? ' active' : ''), title: f.path || f.name, onclick: () => switchTab(i) },
+      const tab = h('div', { cls: 'ftab' + (i === curTab ? ' active' : ''), title: f.path || f.name, draggable: 'true', onclick: () => switchTab(i) },
         h('span', { cls: 'nm' }, f.name + (f.dirty ? '*' : '')),
-        h('span', { cls: 'x', title: 'Close', onclick: (e) => { e.stopPropagation(); closeTab(i); } }, '\u00d7')));
+        h('span', { cls: 'x', title: 'Close', onclick: (e) => { e.stopPropagation(); closeTab(i); } }, '\u00d7'));
+      // drag a tab onto another to reorder: it lands before or after it, by which half the pointer is on
+      const before = (ev) => { const r = tab.getBoundingClientRect(); return ev.clientX < r.left + r.width / 2; };
+      tab.addEventListener('dragstart', (ev) => { dragTab = i; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', f.name); tab.classList.add('dragging'); });
+      tab.addEventListener('dragend', () => { dragTab = null; renderTabs(); });
+      tab.addEventListener('dragover', (ev) => {
+        if (dragTab == null) return;
+        ev.preventDefault(); ev.dataTransfer.dropEffect = 'move';
+        const b = before(ev); tab.classList.toggle('drop-before', b); tab.classList.toggle('drop-after', !b);
+      });
+      tab.addEventListener('dragleave', () => tab.classList.remove('drop-before', 'drop-after'));
+      tab.addEventListener('drop', (ev) => {
+        if (dragTab == null) return;
+        ev.preventDefault(); ev.stopPropagation(); // not a file drop
+        moveTab(dragTab, before(ev) ? i : i + 1);
+      });
+      bar.append(tab);
     });
     bar.append(h('div', { cls: 'ftab plus', title: 'New drawing (Ctrl+N)', onclick: () => S.fileNew() }, '+'));
   }
+  let dragTab = null;
+  // move tab `from` to insertion position `to` (0 = first); the active drawing stays active
+  function moveTab(from, to) {
+    if (to > from) to--;
+    if (from === to || !docTabs[from]) return;
+    docTabs[curTab] = tabState();
+    const active = docTabs[curTab];
+    docTabs.splice(to, 0, docTabs.splice(from, 1)[0]);
+    curTab = docTabs.indexOf(active);
+    renderTabs();
+  }
+  S.moveTab = moveTab;
   function newDrawingTab() {
     untitled.n++;
     openTab(S.newDoc(), { name: `Drawing${untitled.n}.dfg` });

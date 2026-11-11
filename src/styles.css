@@ -63,6 +63,9 @@ input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
 .ftab.active { background: var(--model); color: #fff; }
 .ftab .x { opacity: .6; font-size: 14px; } .ftab .x:hover { opacity: 1; color: var(--danger); }
 .ftab.plus { padding: 0 9px; font-size: 15px; }
+.ftab.dragging { opacity: .5; }
+.ftab.drop-before { box-shadow: inset 3px 0 0 var(--accent); }
+.ftab.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
 
 /* ---------- main area ---------- */
 #main { flex: 1; display: flex; min-height: 0; }
