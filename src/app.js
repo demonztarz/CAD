@@ -692,23 +692,25 @@
         if (w.x >= 0 && w.x <= pw && w.y >= 0 && w.y <= ph) cursorColor = '#000000';
       }
       c.strokeStyle = cursorColor; c.lineWidth = 1;
+      // one pixel-aligned centre for the crosshair lines and the pick box, so the box sits exactly centred
+      const px = Math.round(sx) + 0.5, py = Math.round(sy) + 0.5;
       if (mode !== 'pick') {
         const L = Math.max(W, H) * (S.st.cursorSize >= 100 ? 2 : S.st.cursorSize / 100);
         c.beginPath();
         if (S.st.iso || S.st.snapAng) {
           for (const a of S.orthoAxes()) {
             const dx = Math.cos(a) * L, dy = -Math.sin(a) * L;
-            c.moveTo(sx - dx, sy - dy); c.lineTo(sx + dx, sy + dy);
+            c.moveTo(px - dx, py - dy); c.lineTo(px + dx, py + dy);
           }
         } else {
-          c.moveTo(Math.round(sx - L) + 0.5, Math.round(sy) + 0.5); c.lineTo(Math.round(sx + L) + 0.5, Math.round(sy) + 0.5);
-          c.moveTo(Math.round(sx) + 0.5, Math.round(sy - L) + 0.5); c.lineTo(Math.round(sx) + 0.5, Math.round(sy + L) + 0.5);
+          c.moveTo(Math.round(px - L), py); c.lineTo(Math.round(px + L), py);
+          c.moveTo(px, Math.round(py - L)); c.lineTo(px, Math.round(py + L));
         }
         c.stroke();
       }
       if (mode !== 'point') {
-        const b = S.st.pickbox;
-        c.strokeRect(Math.round(sx - b) + 0.5, Math.round(sy - b) + 0.5, 2 * b, 2 * b);
+        const b = Math.round(S.st.pickbox);
+        c.strokeRect(px - b, py - b, 2 * b, 2 * b);
       }
     }
   }
