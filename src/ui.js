@@ -1066,8 +1066,19 @@
     if (!known.has(doc.clayer)) doc.clayer = '0';
     return doc;
   };
+  // Drafting toggles are remembered per drawing (like AutoCAD): copied out of S.st when a drawing is left
+  // or saved, and back in when it is shown. The rest of the program keeps reading S.st, so nothing runs per frame.
+  const DOC_ST = ['iso', 'isoplane', 'ortho', 'snap', 'grid', 'snapAng', 'snapSpacing', 'gridSpacing'];
+  const FRESH = { iso: false, isoplane: 'left', snapAng: 0 }; // a new drawing: normal drafting
+  const stashDrafting = () => { S.doc.settings.drafting = Object.fromEntries(DOC_ST.map((k) => [k, S.st[k] ?? FRESH[k]])); };
+  const applyDrafting = () => {
+    const d = { ...FRESH, ...S.doc.settings.drafting }; // new and older drawings: FRESH, the rest as they are
+    for (const k of DOC_ST) if (d[k] !== undefined) S.st[k] = d[k];
+    S.emit('status'); S.render();
+  };
   S.setDoc = (doc, file) => {
     S.doc = normalizeDoc(doc);
+    applyDrafting();
     S.space = null; S.views = {};
     if (!S.doc.layouts.length) S.doc.layouts = [{ name: 'Layout1', paper: 'A3', orient: 'landscape', style: 'monochrome', entities: [], init: false }];
     S.file = { path: null, name: 'Drawing1.dfg', kind: 'dfg', dirty: false, ...file };
@@ -1090,7 +1101,7 @@
     return true;
   }
   // ---- file tabs
-  const tabState = () => ({ doc: S.doc, file: S.file, undo: S.undoStack, redo: S.redoStack, view: { ...S.view }, views: S.views, space: S.space, lastLayout: S.lastLayout });
+  const tabState = () => (stashDrafting(), { doc: S.doc, file: S.file, undo: S.undoStack, redo: S.redoStack, view: { ...S.view }, views: S.views, space: S.space, lastLayout: S.lastLayout });
   const tabFile = (i) => (i === curTab ? S.file : docTabs[i].file);
   async function stopCommand() {
     if (S.input || S.running) { S.cancelInput(); await new Promise((r) => setTimeout(r, 0)); }
@@ -1099,6 +1110,7 @@
     const t = docTabs[i];
     curTab = i;
     S.doc = t.doc; S.file = t.file; S.undoStack = t.undo; S.redoStack = t.redo;
+    applyDrafting();
     S.views = t.views; S.space = t.space; S.lastLayout = t.lastLayout;
     S.selection.clear(); S.lastPoint = null; S.hover = null;
     if (S.clearAcquired) S.clearAcquired();
@@ -1236,7 +1248,7 @@
     };
     inp.click();
   };
-  const serialize = () => JSON.stringify({ format: 'DraftForge', ...S.doc });
+  const serialize = () => (stashDrafting(), JSON.stringify({ format: 'DraftForge', ...S.doc }));
   const download = (name, data, type) => {
     const blob = data instanceof Blob ? data : new Blob([data], { type });
     const a = h('a', { href: URL.createObjectURL(blob), download: name });
