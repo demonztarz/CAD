@@ -236,11 +236,13 @@
     let c, a1p;
     const first = await S.getPoint('Specify axis endpoint of ellipse or', { keywords: S.st.iso ? ['Center', 'Isocircle'] : ['Center'] });
     if (first === 'Isocircle') {
+      // with All planes on, the circle still lies on one face: ask which
+      const pl = S.st.isoplane === 'all' ? (await S.getKeyword('Isocircle on which face?', ['Left', 'Top', 'Right'], 'Top')).toLowerCase() : S.st.isoplane;
       const ic = await S.getPoint('Specify center of isocircle');
-      let r = await S.getDistance('Specify radius of isocircle or', { base: ic, keywords: ['Diameter'], preview: (p) => [S.isocircle(ic, G.dist(ic, p))] });
-      if (r === 'Diameter') r = (await S.getDistance('Specify diameter of isocircle', { base: ic, preview: (p) => [S.isocircle(ic, G.dist(ic, p) / 2)] })) / 2;
+      let r = await S.getDistance('Specify radius of isocircle or', { base: ic, keywords: ['Diameter'], preview: (p) => [S.isocircle(ic, G.dist(ic, p), pl)] });
+      if (r === 'Diameter') r = (await S.getDistance('Specify diameter of isocircle', { base: ic, preview: (p) => [S.isocircle(ic, G.dist(ic, p) / 2, pl)] })) / 2;
       if (!(r > 0)) { S.msg('Value must be positive and nonzero.', 'err'); return; }
-      S.add(S.isocircle(ic, r));
+      S.add(S.isocircle(ic, r, pl));
       return;
     }
     if (first === 'Center') {
@@ -263,8 +265,8 @@
   }, { aliases: ['EL'], desc: 'Creates an ellipse', group: 'Draw' });
 
   // Isometric circle in the current isoplane: an ellipse through r along both plane axes.
-  S.isocircle = (c, r) => {
-    const [a1, a2] = S.ISO_AXES[S.st.isoplane || 'left'].map(G.rad);
+  S.isocircle = (c, r, plane = S.st.isoplane) => {
+    const [a1, a2] = S.ISO_AXES[!plane || plane === 'all' ? 'top' : plane].map(G.rad);
     const A = P(Math.cos(a1) * r, Math.sin(a1) * r), B = P(Math.cos(a2) * r, Math.sin(a2) * r);
     // principal axes of P(t) = A cos t + B sin t (conjugate semi-diameters)
     const t0 = 0.5 * Math.atan2(2 * G.dot(A, B), G.dot(A, A) - G.dot(B, B));
@@ -1070,18 +1072,18 @@
   R('GRID', toggle('grid', 'Grid'), { desc: 'Toggles the grid display (F7)', group: 'Settings', noUndo: true, pickfirst: false });
   R('SNAP', toggle('snap', 'Snap'), { aliases: ['SN'], desc: 'Toggles snap mode (F9)', group: 'Settings', noUndo: true, pickfirst: false });
   S.cycleIsoplane = () => {
-    const order = ['left', 'top', 'right'];
-    S.st.isoplane = order[(order.indexOf(S.st.isoplane || 'left') + 1) % 3];
+    const order = ['left', 'top', 'right', 'all'];
+    S.st.isoplane = order[(order.indexOf(S.st.isoplane || 'left') + 1) % order.length];
     S.saveSettings(); S.emit('status'); S.render();
-    S.msg(`<Isoplane ${S.st.isoplane[0].toUpperCase() + S.st.isoplane.slice(1)}>`);
+    S.msg(`<Isoplane ${S.isoplaneLabel(S.st.isoplane)}>`);
   };
   R('ISODRAFT', async () => {
-    const r = await S.getKeyword('Enter isometric setting', ['Left', 'Top', 'Right', 'Off'], S.st.iso ? 'Off' : (S.st.isoplane ? S.st.isoplane[0].toUpperCase() + S.st.isoplane.slice(1) : 'Left'));
+    const r = await S.getKeyword('Enter isometric setting', ['Left', 'Top', 'Right', 'All', 'Off'], S.st.iso ? 'Off' : (S.st.isoplane === 'all' ? 'All' : S.st.isoplane ? S.st.isoplane[0].toUpperCase() + S.st.isoplane.slice(1) : 'Left'));
     if (r === 'Off') { S.st.iso = false; S.msg('<Isometric drafting off>'); }
-    else { S.st.iso = true; S.st.isoplane = r.toLowerCase(); S.msg(`<Isometric drafting on, isoplane ${r}>  F5 cycles planes; F8 locks to the plane's axes.`); }
+    else { S.st.iso = true; S.st.isoplane = r.toLowerCase(); S.msg(`<Isometric drafting on, isoplane ${S.isoplaneLabel(S.st.isoplane)}>  F5 cycles planes; F8 locks to the plane's axes.`); }
     S.saveSettings(); S.emit('status'); S.render();
   }, { aliases: ['ISO'], desc: 'Turns isometric drafting on/off and picks the isoplane (F5 cycles planes)', group: 'Settings', noUndo: true, pickfirst: false });
-  R('ISOPLANE', () => S.cycleIsoplane(), { desc: 'Cycles the isometric plane: left, top, right (F5 / Ctrl+E)', group: 'Settings', noUndo: true, pickfirst: false });
+  R('ISOPLANE', () => S.cycleIsoplane(), { desc: 'Cycles the isometric plane: left, top, right, all (F5 / Ctrl+E)', group: 'Settings', noUndo: true, pickfirst: false });
   R('SNAPANG', async () => {
     const v = await S.getAngle('Specify snap/ortho angle', { def: S.st.snapAng || 0 });
     S.st.snapAng = ((v % 360) + 360) % 360; if (S.st.snapAng > 359.999999) S.st.snapAng = 0;

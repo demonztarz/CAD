@@ -600,8 +600,8 @@
     } }, S.space ? 'PAPER' : 'MODEL'), h('div', { cls: 'tg-sep' }));
     for (const [key, icon, tip] of TOGGLES) {
       const b = h('button', { cls: 'tg' + (S.st[key] ? ' on' : ''), title: tip, html: I(icon, 18), onclick: () => { S.st[key] = !S.st[key]; S.saveSettings(); buildStatus(); S.render(); S.msg(`<${tip.split(' (')[0]} ${S.st[key] ? 'on' : 'off'}>`); } });
-      if (key === 'iso') b.title = `Isometric drafting (${S.st.iso ? 'isoplane ' + (S.st.isoplane || 'left') : 'off'}) - F5 cycles isoplane, right-click to choose`;
-      if (key === 'iso') b.addEventListener('contextmenu', (e) => { e.preventDefault(); showMenu(e.clientX, e.clientY - 120, ['left', 'top', 'right'].map((pl) => ({ label: `Isoplane ${pl[0].toUpperCase() + pl.slice(1)}`, checked: S.st.iso && S.st.isoplane === pl, act: () => { S.st.iso = true; S.st.isoplane = pl; S.saveSettings(); buildStatus(); S.render(); } })).concat(['-', { label: 'Isometric off', act: () => { S.st.iso = false; S.saveSettings(); buildStatus(); S.render(); } }])); });
+      if (key === 'iso') b.title = `Isometric drafting (${S.st.iso ? 'isoplane ' + S.isoplaneLabel(S.st.isoplane) : 'off'}) - F5 cycles isoplane, right-click to choose`;
+      if (key === 'iso') b.addEventListener('contextmenu', (e) => { e.preventDefault(); showMenu(e.clientX, e.clientY - 120, ['left', 'top', 'right', 'all'].map((pl) => ({ label: `Isoplane ${S.isoplaneLabel(pl)}`, checked: S.st.iso && S.st.isoplane === pl, act: () => { S.st.iso = true; S.st.isoplane = pl; S.saveSettings(); buildStatus(); S.render(); } })).concat(['-', { label: 'Isometric off', act: () => { S.st.iso = false; S.saveSettings(); buildStatus(); S.render(); } }])); });
       if (key === 'osnap' || key === 'polar' || key === 'snap' || key === 'grid') b.addEventListener('contextmenu', (e) => { e.preventDefault(); S.openOsnapDialog(); });
       t.append(b);
     }

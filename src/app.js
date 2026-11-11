@@ -875,7 +875,9 @@
   };
 
   // Drafting axes used by ortho, the crosshair and the grid: the current isometric plane, or the snap angle.
-  S.ISO_AXES = { left: [150, 90], top: [30, 150], right: [30, 90] };
+  // 'all': the three iso axes at once - Ortho locks to the nearest, the crosshair shows all three
+  S.ISO_AXES = { left: [150, 90], top: [30, 150], right: [30, 90], all: [30, 90, 150] };
+  S.isoplaneLabel = (pl) => (pl === 'all' ? 'All planes' : (pl || 'left')[0].toUpperCase() + (pl || 'left').slice(1));
   S.orthoAxes = () => {
     if (S.st.iso) return S.ISO_AXES[S.st.isoplane || 'left'].map(G.rad);
     const a = G.rad(S.st.snapAng || 0);
