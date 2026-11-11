@@ -46,6 +46,7 @@ code-signed. Choose **More info → Run anyway**.
 - **Dimension arrowheads:** Auto (default) uses arrows where they fit and architectural ticks on narrow dimensions; Arrow flips arrows outside instead; Tick uses ticks everywhere. Set it for the drawing with `DIMARROW` or the Properties palette, or per dimension in the palette (Arrowheads).
 - **Touchpads:** a two-finger swipe pans the view and a pinch zooms around the pointer; a mouse wheel still zooms in steps (the two are told apart automatically).
 - **Section lines:** `SECTIONLINE` (`SL`, Annotate > Section Line) draws a section cutting line with stubs, arrows pointing the way the section is viewed and upright letters (next free letter suggested), plus an optional "SECTION A-A" title; the mark is grouped and sized from the dimension text height.
+- **Layer list:** the layer box on the Home tab drops down a list of all layers with clickable on/off, freeze and lock icons (it stays open for several changes); click a name to make it current, or to move selected objects onto it.
 - **Interface:** ribbon, command line with autocomplete and history, dynamic input tooltip, window/crossing selection, right-click menus, undo/redo
 - **Files:** open DWG (R14 through 2018+), DXF and DraftForgeCAD `.dfg`; save `.dfg` or DXF R12; export SVG, PNG and PDF
 

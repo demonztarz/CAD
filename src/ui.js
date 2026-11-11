@@ -89,6 +89,7 @@
     }
     if (it.t === 'col') return h('div', { cls: 'rcol' }, it.items.map(buildItem));
     if (it.t === 'row') return h('div', { cls: 'rctl' }, it.items.map((x) => { const b = buildItem(x); b.classList.add('icon-only'); b.querySelector('span').remove(); return b; }));
+    if (it.t === 'ctl' && it.kind === 'layer') return layerPicker();
     if (it.t === 'ctl') {
       const sel = h('select', { title: { layer: 'Layer', color: 'Object color', lw: 'Lineweight', ltype: 'Linetype' }[it.kind] });
       (ribbonCtls[it.kind] = ribbonCtls[it.kind] || []).push(sel);
@@ -108,6 +109,7 @@
     tabs.innerHTML = ''; rib.innerHTML = '';
     for (const k of Object.keys(RIBBON).concat()) for (const key of Object.keys(ribbonCtls)) void key;
     for (const k of Object.keys(ribbonCtls)) ribbonCtls[k] = [];
+    layerBtns.length = 0;
     if (!RIBBON[activeTab]) activeTab = 'Home';
     for (const name of Object.keys(RIBBON)) {
       tabs.append(h('div', { cls: 'rt' + (name === activeTab ? ' active' : ''), onclick: () => { activeTab = name; buildRibbon(); } }, name));
@@ -250,7 +252,72 @@
       sel.value = st.varies ? '__varies' : 't:' + (st.v == null ? 'null' : st.v);
     }
   }
+  // ---- layer picker (ribbon): current layer, plus a drop-down list with on/off, freeze and lock per layer
+  const layerBtns = [];
+  const layerFlags = (l) => [
+    h('span', { cls: 'lf on' + (l.on === false ? ' off' : ''), title: l.on === false ? 'Off: click to show' : 'On: click to hide', 'data-act': 'on' }, '\u25CF'),
+    h('span', { cls: 'lf fr', title: l.frozen ? 'Frozen: click to thaw' : 'Thawed: click to freeze', 'data-act': 'frozen' }, l.frozen ? '\u2744' : '\u2600'),
+    h('span', { cls: 'lf lk' + (l.locked ? ' locked' : ''), title: l.locked ? 'Locked: click to unlock' : 'Unlocked: click to lock', 'data-act': 'locked',
+      html: `<svg viewBox="0 0 12 12" width="12" height="12" style="pointer-events:none"><rect x="2" y="5.5" width="8" height="5.5" rx="1" fill="currentColor"/><path d="${l.locked ? 'M3.8 5.5 V3.8 a2.2 2.2 0 0 1 4.4 0 V5.5' : 'M3.8 5.5 V3.8 a2.2 2.2 0 0 1 4.4 0 V3.2'}" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>` }),
+    swatch(l.color),
+  ];
+  function layerPicker() {
+    const btn = h('button', { cls: 'rlayer', title: 'Layer: click for the layer list' });
+    btn.addEventListener('mousedown', (e) => e.stopPropagation());
+    btn.addEventListener('click', (ev) => { ev.stopPropagation(); toggleLayerPop(btn); });
+    layerBtns.push(btn);
+    paintLayerBtn(btn);
+    return h('div', { cls: 'rctl' }, h('span', { cls: 'lbl', html: I('layers', 16) }), btn);
+  }
+  function paintLayerBtn(btn) {
+    const st = selValue('layer'), l = !st.varies && S.layer(st.v);
+    btn.innerHTML = '';
+    if (l) btn.append(...layerFlags(l), h('span', { cls: 'nm' }, l.name));
+    else btn.append(h('span', { cls: 'nm' }, '*VARIES*'));
+    btn.append(h('span', { cls: 'arr' }, '\u25BE'));
+  }
+  let layerPop = null;
+  function closeLayerPop() { if (layerPop) { layerPop.remove(); layerPop = null; } }
+  function setLayerFlag(name, key) {
+    const i = S.doc.layers.findIndex((x) => x.name === name), l = S.doc.layers[i];
+    if (key === 'frozen' && !l.frozen && name === S.doc.clayer) { S.msg('The current layer cannot be frozen.', 'err'); return; }
+    const v = key === 'on' ? l.on === false : !l[key];
+    S.runningName = 'Layer'; S.mark(); S.doc.layers[i] = { ...l, [key]: v }; S.endOp();
+    S.refreshLayers(); S.clearCaches(); S.render(); S.emit('doc');
+  }
+  function toggleLayerPop(btn) {
+    if (layerPop && layerPop.btn === btn) { closeLayerPop(); return; }
+    closeLayerPop();
+    const pop = h('div', { cls: 'layerpop' });
+    const fill = () => {
+      pop.innerHTML = '';
+      const cur = selValue('layer');
+      for (const l of S.doc.layers) {
+        const row = h('div', { cls: 'lrow' + (!cur.varies && cur.v === l.name ? ' cur' : '') + (l.on === false || l.frozen ? ' dim' : '') }, ...layerFlags(l), h('span', { cls: 'nm', title: S.selection.size ? 'Move the selected objects to this layer' : 'Make this the current layer' }, l.name));
+        row.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const act = ev.target.dataset && ev.target.dataset.act;
+          if (act) { setLayerFlag(l.name, act); fill(); return; }
+          if (!changeSelection((e) => ({ ...e, layer: l.name }), 'Change layer')) {
+            if (l.frozen) { S.msg('A frozen layer cannot be made current.', 'err'); return; }
+            S.doc.clayer = l.name; S.msg(`Current layer: ${l.name}`); S.emit('doc');
+          }
+          closeLayerPop();
+        });
+        pop.append(row);
+      }
+    };
+    fill();
+    const r = btn.getBoundingClientRect();
+    pop.style.left = r.left + 'px'; pop.style.top = r.bottom + 2 + 'px'; pop.style.minWidth = r.width + 'px';
+    document.body.append(pop);
+    layerPop = pop; pop.btn = btn;
+  }
+  document.addEventListener('click', () => closeLayerPop());
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLayerPop(); });
+
   function refreshControls() {
+    for (const b of layerBtns) if (b.isConnected) paintLayerBtn(b);
     for (const [kind, sels] of Object.entries(ribbonCtls)) for (const s of sels) if (document.activeElement !== s) fillSelect(s, kind);
   }
   function changeSelection(fn, label) {

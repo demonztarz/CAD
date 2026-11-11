@@ -204,3 +204,20 @@ input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
 .rslide-foot { display: flex; justify-content: space-between; align-items: center; padding: 0 4px 0 8px; height: 20px; font-size: 11px; color: var(--muted); background: rgba(0,0,0,0.12); }
 .rslide-foot .pin { background: none; border: 0; cursor: pointer; opacity: .45; font-size: 11px; }
 .rslide-foot .pin.on, .rslide-foot .pin:hover { opacity: 1; }
+
+/* layer picker */
+.rlayer { display: flex; align-items: center; gap: 6px; height: 22px; min-width: 150px; max-width: 230px; padding: 0 6px; background: var(--chrome-2); border: 1px solid var(--border); border-radius: 2px; color: var(--text); cursor: pointer; }
+.rlayer:hover { border-color: var(--accent); }
+.rlayer .nm { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rlayer .arr { color: var(--muted); font-size: 10px; }
+.lf { width: 14px; text-align: center; font-size: 12px; line-height: 1; }
+.lf.on { color: #ffd166; } .lf.on.off { color: #5b6472; }
+.lf.fr { color: #ffd166; }
+.lf.lk { color: #5b6472; } .lf.lk.locked { color: #ffd166; }
+.lf svg { display: block; margin: 0 auto; }
+.layerpop { position: fixed; z-index: 40; background: var(--panel); border: 1px solid var(--border); box-shadow: 0 6px 16px rgba(0,0,0,.45); max-height: 60vh; overflow-y: auto; padding: 2px 0; }
+.layerpop .lrow { display: flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: pointer; white-space: nowrap; }
+.layerpop .lrow:hover { background: var(--panel-hi); }
+.layerpop .lrow.cur { background: rgba(47,127,255,.22); }
+.layerpop .lrow.dim .nm { color: var(--muted); }
+.layerpop .lf { cursor: pointer; border-radius: 2px; } .layerpop .lf:hover { background: rgba(255,255,255,.12); }
