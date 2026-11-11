@@ -71,6 +71,7 @@
     groupedit: s('M3 3 H9 M15 3 H21 V9 M21 15 V21 H15 M9 21 H3 V15 M3 9 V3', W, 1.2) + s('M8 16 L15 9 L17 11 L10 18 H8 Z', Y, 1.4),
     groupsel: s('M3 3 H9 M15 3 H21 V9 M21 15 V21 H15 M9 21 H3 V15 M3 9 V3', W, 1.2) + s('M9 8 L9 17 L11.5 14.5 L13.5 18.5 L15 17.8 L13 13.8 L16.5 13.5 Z', B, 1.3),
     image: s('M3 5 H21 V19 H3 Z', W, 1.2) + s('M4 17 L9 11 L13 15 L16 12 L20 16', Gn, 1.5) + dot(16.5, 8.5, Y, 1.6),
+    section: s('M3 12 H6 M9 12 H11 M14 12 H16 M19 12 H21', W, 1.6) + s('M3 12 V16 M21 12 V16', B, 1.6) + '<path d="M1 16 H5 L3 20 Z M19 16 H23 L21 20 Z" fill="#ffd166"/>' + txt(5.5, 9, 'A', W, 7),
     breakline: s('M2 12 H9 L10.5 7 L13.5 17 L15 12 H22', B, 1.6),
     cmdline: s('M3 5 H21 V19 H3 Z', W, 1.2) + s('M6 10 L9 12.5 L6 15', Gn, 1.6) + s('M11 15.5 H16', B, 1.6),
     help: '<circle cx="12" cy="12" r="9" fill="none" stroke="#7fb6ff" stroke-width="1.6"/>' + txt(8.5, 16.5, '?', W, 12),

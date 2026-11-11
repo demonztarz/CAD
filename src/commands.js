@@ -81,6 +81,47 @@
     S.add({ type: 'pline', closed: true, pts: rectPts(a, b) });
   }, { aliases: ['REC', 'RECTANGLE'], desc: 'Creates a rectangular polyline', group: 'Draw' });
 
+  // Section mark: Phantom cutting line, stubs and filled arrows pointing the way the section is viewed,
+  // upright letters; drawn as ordinary objects and grouped as "Section A". Sized from the dimension text height.
+  const SECTION_LETTERS = 'ABCDEFGHJKLMNPRSTUVWXYZ'.split(''); // I, O and Q skipped: they look like 1, 0 and O
+  const sectionMark = (a, b, side, letter, h) => {
+    const L = G.dist(a, b);
+    if (L < 1e-9) return [];
+    const u = G.mul(G.sub(b, a), 1 / L), n = G.mul(G.perp(u), side >= 0 ? 1 : -1);
+    const stub = 3 * h, al = 1.6 * h, aw = 0.55 * h, out = [];
+    out.push({ type: 'line', x1: a.x, y1: a.y, x2: b.x, y2: b.y, ltype: 'PHANTOM', lw: 0.5 });
+    [[a, -1], [b, 1]].forEach(([p, s]) => {
+      const e = G.add(p, G.mul(n, stub)), tip = G.add(e, G.mul(n, al));
+      out.push({ type: 'line', x1: p.x, y1: p.y, x2: e.x, y2: e.y, ltype: 'CONTINUOUS', lw: 0.5 });
+      out.push({ type: 'solid', pts: [tip, G.add(e, G.mul(u, aw)), G.sub(e, G.mul(u, aw))] });
+      const t = G.add(G.add(e, G.mul(n, al / 2)), G.mul(u, s * 1.6 * h)); // beside the arrow, on the outside
+      out.push({ type: 'text', x: t.x, y: t.y, h: 1.2 * h, rot: 0, text: letter, ha: 'center', va: 'middle' });
+    });
+    return out;
+  };
+  R('SECTIONLINE', async () => {
+    const h = S.doc.settings.dimHeight || 2.5;
+    const a = await S.getPoint('Specify start point of cutting line');
+    S.lastPoint = a;
+    const b = await S.getPoint('Specify end point of cutting line', { base: a, noRubber: true, preview: (p) => sectionMark(a, p, 1, '', h) });
+    if (G.dist(a, b) < 1e-9) { S.msg('The two points are the same.', 'err'); return; }
+    const sideOf = (p) => G.cross(G.sub(b, a), G.sub(p, a));
+    const v = await S.getPoint('Click the side the section is viewed toward (arrows point that way)', { preview: (p) => sectionMark(a, b, sideOf(p), '', h) });
+    const used = new Set(Object.keys(S.doc.groups || {}).map((k) => (k.match(/^Section (\S+)$/) || [])[1]).filter(Boolean));
+    const next = SECTION_LETTERS.find((c) => !used.has(c)) || 'A';
+    const letter = ((await S.getString('Enter section letter', { def: next })) || next).trim().toUpperCase() || next;
+    const titleText = `SECTION ${letter}-${letter}`;
+    const tp = await S.getPoint('Specify location for the view title, or Enter for none', { allowNone: true, preview: (p) => [{ type: 'text', x: p.x, y: p.y, h: 1.4 * h, rot: 0, text: titleText, ha: 'center', va: 'middle' }] });
+    S.mark();
+    S.doc.groups = S.doc.groups || {};
+    let name = `Section ${letter}`;
+    if (S.doc.groups[name]) name = S.newGroupName(); // letter reused: keep the old group, this one is unnamed
+    S.doc.groups[name] = { anon: name.startsWith('*') };
+    for (const e of sectionMark(a, b, sideOf(v), letter, h)) S.add({ ...e, g: name });
+    if (tp) S.add({ type: 'text', x: tp.x, y: tp.y, h: 1.4 * h, rot: 0, text: titleText, ha: 'center', va: 'middle' });
+    S.msg(`Section ${letter} added${tp ? ' with its title' : ''}. It is grouped: picking any part selects the whole mark.`);
+  }, { aliases: ['SECTION', 'SL'], desc: 'Draws a section cutting line with arrows and letters (and the view title)', group: 'Annotate', pickfirst: false });
+
   R('BREAKLINE', async () => {
     const st = S.doc.settings;
     let a;

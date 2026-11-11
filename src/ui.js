@@ -64,6 +64,7 @@
       { title: 'Text', items: [big('mtext', 'Multiline Text', 'MTEXT'), big('text', 'Single Line', 'TEXT')] },
       { title: 'Dimensions', items: [big('dimlinear', 'Linear', 'DIMLINEAR'), big('dimaligned', 'Aligned', 'DIMALIGNED'), col(sm('dimradius', 'Radius', 'DIMRADIUS'), sm('dimdiameter', 'Diameter', 'DIMDIAMETER'), sm('dimangular', 'Angular', 'DIMANGULAR')), col(sm('text', 'Edit Text', 'DIMTEDIT'))] },
       { title: 'Hatch', items: [big('hatch', 'Hatch', 'HATCH')] },
+      { title: 'Views', items: [big('section', 'Section Line', 'SECTIONLINE')] },
     ],
     View: [
       { title: 'Navigate', items: [big('zoomext', 'Extents', () => S.zoomExtents()), big('zoomwin', 'Window', 'ZOOM'), big('pan', 'Pan', 'PAN'), big('regen', 'Regen', 'REGEN')] },
