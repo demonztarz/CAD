@@ -617,7 +617,7 @@
   R('TRIM', async () => {
     S.msg('Current settings: Mode = Quick, all visible objects act as cutting edges');
     for (;;) {
-      const r = await S.getEntity('Select object to trim or', { filter: (e) => ['line', 'arc', 'circle', 'pline'].includes(e.type), allowNone: true, keywords: ['Undo'] });
+      const r = await S.getEntity('Select object to trim or', { filter: (e) => ['line', 'arc', 'circle', 'pline', 'ellipse'].includes(e.type), allowNone: true, keywords: ['Undo'] });
       if (r == null) return;
       if (r === 'Undo') { S.undo(); continue; }
       const res = G.trimEntity(r.e, r.p, cuttersFor(r.e));

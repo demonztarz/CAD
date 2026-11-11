@@ -176,6 +176,7 @@
     }
     S.E = out;
     for (const e of map.keys()) S.selection.delete(e);
+    if (S.hover && map.has(S.hover)) S.hover = null; // don't keep highlighting a replaced or erased object
     S.render();
   };
   S.remove = (list) => S.replace(new Map([...list].map((e) => [e, []])));

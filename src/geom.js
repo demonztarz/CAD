@@ -884,6 +884,41 @@
       if (hi < S - tol) out.push({ ...e, a1: e.a1 + hi });
       return { replace: out.map((x) => ({ ...x, a1: normAng(x.a1), a2: normAng(x.a2) })) };
     }
+    if (e.type === 'ellipse') {
+      // parameter u runs from 0 to S along the ellipse (or elliptical arc) from its start angle a1
+      const full = isFullEllipse(e), a1 = full ? 0 : (e.a1 ?? 0), S = full ? TAU : sweep(a1, e.a2);
+      const at = (u) => ellipsePoint(e, a1 + u);
+      const M = P(e.mx, e.my), N = P(-e.my * e.ratio, e.mx * e.ratio);
+      const paramOf = (p) => { const d = sub(p, P(e.cx, e.cy)); return normAng(Math.atan2(dot(d, N) / dot(N, N), dot(d, M) / dot(M, M)) - a1); };
+      // crossings: found on a fine polyline, then refined by bisection on the cutter's side function
+      const n = 256, us = [];
+      for (let i = 0; i < n; i++) {
+        const u0 = (S * i) / n, u1 = (S * (i + 1)) / n, seg = { k: 'L', a: at(u0), b: at(u1) };
+        for (const c of cutters) {
+          if (!primInter(seg, c, false, false).length) continue;
+          const f = c.k === 'L' ? (q) => cross(sub(c.b, c.a), sub(q, c.a)) : (q) => dist(q, c.c) - c.r;
+          let lo = u0, hi = u1, flo = f(at(lo));
+          if (Math.sign(flo) === Math.sign(f(at(hi)))) { us.push((u0 + u1) / 2); continue; } // grazing touch
+          for (let k = 0; k < 50; k++) { const m = (lo + hi) / 2, fm = f(at(m)); if (Math.sign(fm) === Math.sign(flo)) { lo = m; flo = fm; } else hi = m; }
+          us.push((lo + hi) / 2);
+        }
+      }
+      const cuts = [...new Set(us.map((u) => +u.toFixed(10)))].filter((u) => full || (u > tol && u < S - tol)).sort((a, b) => a - b);
+      const up = paramOf(pick);
+      if (full) {
+        if (cuts.length < 2) return cuts.length ? null : { remove: true };
+        // keep everything except the gap between the crossings either side of the pick
+        const rel = cuts.map((u) => normAng(u - up)).sort((a, b) => a - b);
+        return { replace: [{ ...e, a1: normAng(up + rel[0]), a2: normAng(up + rel[rel.length - 1]) }] };
+      }
+      let lo = 0, hi = S;
+      for (const u of cuts) { if (u < up) lo = Math.max(lo, u); else hi = Math.min(hi, u); }
+      if (lo === 0 && hi === S) return { remove: true };
+      const out = [];
+      if (lo > tol) out.push({ ...e, a1: normAng(a1), a2: normAng(a1 + lo) });
+      if (hi < S - tol) out.push({ ...e, a1: normAng(a1 + hi), a2: normAng(a1 + S) });
+      return { replace: out };
+    }
     if (e.type === 'pline') {
       const segc = e.closed ? e.pts.length : e.pts.length - 1;
       const T = segc;

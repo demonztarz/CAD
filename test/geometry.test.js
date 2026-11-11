@@ -226,6 +226,33 @@ test('reference image: frame, pixel matrix and transforms', () => {
   near(s2.ux, 80); near(s2.vy, 60); near(s2.x, 10);
 });
 
+test('trim ellipses: full ellipse to an arc, arcs to shorter arcs, ends exactly on the cutter', () => {
+  const ell = { type: 'ellipse', cx: 0, cy: 0, mx: 20, my: 0, ratio: 0.5 }; // 40 wide, 20 tall
+  const vline = { k: 'L', a: { x: 5, y: -50 }, b: { x: 5, y: 50 } };
+  // click the right-hand part: it goes, the rest stays as an elliptical arc ending on x = 5
+  let r = G.trimEntity(ell, { x: 20, y: 0 }, [vline]);
+  assert.strictEqual(r.replace.length, 1);
+  const arc = r.replace[0], e1 = G.ellipsePoint(arc, arc.a1), e2 = G.ellipsePoint(arc, arc.a2);
+  near(e1.x, 5, 1e-9); near(e2.x, 5, 1e-9);
+  assert.ok(G.ellipsePoint(arc, arc.a1 + G.sweep(arc.a1, arc.a2) / 2).x < 0, 'kept the left side');
+  // a single crossing cannot trim a closed ellipse
+  assert.strictEqual(G.trimEntity(ell, { x: 20, y: 0 }, [{ k: 'L', a: { x: 19, y: -50 }, b: { x: 19, y: 0 } }]), null);
+  // trim the arc again at x = -5: clicking its far end shortens it
+  const v2 = { k: 'L', a: { x: -5, y: -50 }, b: { x: -5, y: 50 } };
+  r = G.trimEntity(arc, { x: -20, y: 0 }, [v2]);
+  assert.strictEqual(r.replace.length, 2, 'clicking between two crossings leaves both ends');
+  r = G.trimEntity(arc, { x: 0, y: 10 }, [v2]);
+  assert.strictEqual(r.replace.length, 1);
+  const pts = [G.ellipsePoint(r.replace[0], r.replace[0].a1), G.ellipsePoint(r.replace[0], r.replace[0].a2)].map((q) => q.x).sort((a, b) => a - b);
+  near(pts[0], -5, 1e-7); near(pts[1], 5, 1e-7);
+  // an isocircle-style rotated ellipse, cut by a 30-degree line through its centre
+  const iso = { type: 'ellipse', cx: 10, cy: 10, mx: 17.32, my: 10, ratio: 0.577 };
+  const diag = { k: 'L', a: { x: -40, y: 10 }, b: { x: 60, y: 10 } };
+  r = G.trimEntity(iso, { x: 10 + 17.32, y: 10 + 10 }, [diag]);
+  const k = r.replace[0];
+  near(G.ellipsePoint(k, k.a1).y, 10, 1e-9); near(G.ellipsePoint(k, k.a2).y, 10, 1e-9);
+});
+
 test('dimension text hides trailing zeros only', () => {
   assert.strictEqual(G.fmtDim(50, 2, true), '50');
   assert.strictEqual(G.fmtDim(12.5, 2, true), '12.5');
