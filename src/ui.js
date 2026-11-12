@@ -482,7 +482,7 @@
       updateDyn();
       return;
     }
-    if (k === 'Tab' && dynMode()) { ev.preventDefault(); dynTab(); return; }
+    if (k === 'Tab' && S.input) { ev.preventDefault(); tabDuringCommand(); return; }
     if (k === 'Tab' && !ac.classList.contains('hidden') && acItems[acSel]) { ev.preventDefault(); input.value = acItems[acSel].n; updateAutocomplete(); return; }
     if (k === 'ArrowDown' || k === 'ArrowUp') {
       ev.preventDefault();
@@ -529,6 +529,9 @@
     S.refreshCursor();
     updateDyn();
   }
+  // During a command Tab never moves focus around the interface: it switches the length / angle boxes
+  // when dynamic input is on, and does nothing otherwise.
+  function tabDuringCommand() { if (dynMode()) dynTab(); }
   function dynCompose(v) {
     const mode = dynMode();
     if (!mode) return false;
@@ -620,7 +623,7 @@
     if (fk[k]) { ev.preventDefault(); fk[k](); return; }
     if (k === 'Escape') { ev.preventDefault(); closeMenu(); input.value = ''; ac.classList.add('hidden'); S.escape(); if (inField) input.focus(); updateDyn(); return; }
     if (inField) return;
-    if (k === 'Tab' && t !== input && dynMode()) { ev.preventDefault(); input.focus(); dynTab(); return; }
+    if (k === 'Tab' && t !== input && S.input) { ev.preventDefault(); input.focus(); tabDuringCommand(); return; }
     if (ctrl) {
       const map = { z: 'U', y: 'REDO', c: 'COPYCLIP', x: 'CUTCLIP', v: 'PASTECLIP', a: 'SELECTALL', o: 'OPEN', n: 'NEW', p: 'PLOT' };
       const key = k.toLowerCase();
