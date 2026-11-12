@@ -13,6 +13,11 @@ planning a version. Newest discussions are at the top of each section.
   free-spinning or smooth wheel that gets mistaken for a touchpad (its wheel would pan instead of zoom).
 - **Dynamic input extras** – `#` prefix for absolute coordinates, and typing a comma in the X field
   jumping to the Y field, as in AutoCAD.
+- **Dynamic input off hint** (optional) – when Tab is pressed mid-command with dynamic input off,
+  show "Dynamic input is off - press F12 to use the length / angle boxes". Built once and removed on
+  request; Tab currently does nothing in that case.
+- **Tab cycles between nearby snaps** – when several object snaps are under the cursor (e.g. an
+  endpoint next to a midpoint), Tab steps through them so the right one can be picked, as in AutoCAD.
 
 ## Isometric drafting
 
