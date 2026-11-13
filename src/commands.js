@@ -610,7 +610,8 @@
       if (e === exclude || !S.isSelectable(e) || e.type === 'text' || e.type === 'hatch') continue;
       const b = S.bbox(e);
       if (e.type !== 'xline' && (b[2] < vr[0] || b[0] > vr[2] || b[3] < vr[1] || b[1] > vr[3])) continue;
-      out.push(...S.prims(e).filter((p) => !p.pt));
+      // ellipses are passed whole so edges meet the true curve (their drawn outline is a polygon)
+      if (e.type === 'ellipse') out.push({ k: 'E', e }); else out.push(...S.prims(e).filter((p) => !p.pt));
     }
     return out;
   }

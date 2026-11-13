@@ -589,6 +589,18 @@
   // Intersection points between two primitives. ext1/ext2: treat as infinite line / full circle.
   function primInter(p1, p2, ext1, ext2) {
     const res = [];
+    if (p2.k === 'E' && p1.k !== 'E') return primInter(p2, p1, ext2, ext1);
+    if (p1.k === 'E') {
+      // an exact ellipse cutter (TRIM / EXTEND): straight edges meet it exactly, touching included
+      const e = p1.e, on = (t) => isFullEllipse(e) || angInArc(t, e.a1 ?? 0, e.a2, 1e-9);
+      if (p2.k === 'L' && !p2.pt) {
+        for (const x of lineEllipse(e, p2.a, p2.b, ext2)) if (on(x.th)) res.push(x.t <= 0 ? p2.a : x.t >= 1 ? p2.b : ellipsePoint(e, x.th));
+        return res;
+      }
+      // arcs and other ellipses: against a fine polyline of this one
+      for (const q of polyPrims(ellipsePoints(e, 512))) res.push(...primInter(q, p2, false, ext2));
+      return res;
+    }
     const onArc = (pr, pt, ext) => ext || pr.full || angInArc(ang(pr.c, pt), pr.a1, pr.a2, 1e-9);
     if (p1.k === 'L' && p2.k === 'L') {
       if (p1.pt || p2.pt) return res;
@@ -943,20 +955,10 @@
   function ellipseCuts(e, cutters, tol = 1e-7) {
     const full = isFullEllipse(e), a1 = full ? 0 : (e.a1 ?? 0), S = full ? TAU : sweep(a1, e.a2);
     const at = (u) => ellipsePoint(e, a1 + u);
-    const M = P(e.mx, e.my), N = P(-e.my * e.ratio, e.mx * e.ratio);
     const us = [];
-    // straight cutters: exact, in the ellipse's own frame where it is the unit circle (a line that only
-    // touches the curve, like the edges at a rounded isometric corner, counts as one cut point)
-    const unit = (q) => { const d = sub(q, P(e.cx, e.cy)); return P(dot(d, M) / dot(M, M), dot(d, N) / dot(N, N)); };
-    for (const c of cutters) {
-      if (c.k !== 'L') continue;
-      const A0 = unit(c.a), D = sub(unit(c.b), A0), qa = dot(D, D);
-      if (qa < 1e-18) continue;
-      const qb = 2 * dot(A0, D), qc = dot(A0, A0) - 1, disc = qb * qb - 4 * qa * qc;
-      if (disc < -1e-6 * qa) continue;
-      const sq = Math.sqrt(Math.max(0, disc)), ss = sq < 1e-9 * Math.sqrt(qa) ? [-qb / (2 * qa)] : [(-qb - sq) / (2 * qa), (-qb + sq) / (2 * qa)];
-      for (const t of ss) if (t >= -1e-9 && t <= 1 + 1e-9) { const Q = add(A0, mul(D, t)); us.push(normAng(Math.atan2(Q.y, Q.x) - a1)); }
-    }
+    // straight cutters: exact (a line that only touches the curve, like the edges at a rounded isometric
+    // corner, counts as one cut point)
+    for (const c of cutters) if (c.k === 'L' && !c.pt) for (const x of lineEllipse(e, c.a, c.b, false)) us.push(normAng(x.th - a1));
     // curved cutters (arcs, circles): found on a fine polyline, then refined by bisection
     const n = 256;
     for (let i = 0; i < n; i++) {
@@ -964,7 +966,7 @@
       for (const c of cutters) {
         if (c.k === 'L') continue;
         if (!primInter(seg, c, false, false).length) continue;
-        const f = c.k === 'L' ? (q) => cross(sub(c.b, c.a), sub(q, c.a)) : (q) => dist(q, c.c) - c.r;
+        const f = c.k === 'E' ? ((u) => (q) => len(u(q)) - 1)(ellipseUnit(c.e)) : (q) => dist(q, c.c) - c.r;
         let lo = u0, hi = u1, flo = f(at(lo));
         if (Math.sign(flo) === Math.sign(f(at(hi)))) {
           // the cutter just touches the curve (a tangent line, e.g. at a rounded corner): find the touch point
@@ -983,6 +985,30 @@
     if (full && cuts.length > 1 && TAU - cuts[cuts.length - 1] + cuts[0] < 1e-6) cuts.pop();
     for (let i = cuts.length - 1; i >= 0; i--) if (!full && !(cuts[i] > tol && cuts[i] < S - tol)) cuts.splice(i, 1);
     return cuts;
+  }
+
+  /** Where segment a-b (or its whole line, ext) meets ellipse e: [{ t along a-b, th = ellipse parameter }].
+   *  A line within rounding of touching counts as touching at one point, and a segment ending within
+   *  1e-6 of the curve still reaches it, so trimmed ends (which land on such points) keep acting as edges. */
+  function lineEllipse(e, a, b, ext) {
+    const u = ellipseUnit(e), A0 = u(a), D = sub(u(b), A0), qa = dot(D, D), out = [];
+    if (qa < 1e-18) return out;
+    const t0 = -dot(A0, D) / qa, F = add(A0, mul(D, t0)), h2 = 1 - dot(F, F); // foot of the perpendicular, half-chord²
+    if (h2 < -1e-9) return out;
+    const h = Math.sqrt(Math.max(0, h2)), ts = h < 1e-5 ? [t0] : [t0 - h / Math.sqrt(qa), t0 + h / Math.sqrt(qa)];
+    const tl = 1e-6 / Math.max(1e-12, dist(a, b));
+    for (let t of ts) {
+      if (!ext) { if (t < -tl || t > 1 + tl) continue; t = Math.max(0, Math.min(1, t)); }
+      const Q = h < 1e-5 ? mul(F, 1 / len(F)) : add(A0, mul(D, t));
+      out.push({ t, th: normAng(Math.atan2(Q.y, Q.x)) });
+    }
+    return out;
+  }
+
+  /** Map a point into the ellipse's own frame, where the ellipse is the unit circle. */
+  function ellipseUnit(e) {
+    const M = P(e.mx, e.my), N = P(-e.my * e.ratio, e.mx * e.ratio), c = P(e.cx, e.cy);
+    return (q) => { const d = sub(q, c); return P(dot(d, M) / dot(M, M), dot(d, N) / dot(N, N)); };
   }
 
   /** Ellipse parameter t (as in ellipsePoint) of the point on the ellipse in the direction of p. */
@@ -1122,7 +1148,7 @@
     TEXT, textBox, textCorners, textInkCorners, textCenter, fmtNum, fmtDim, dimFrame, dimGeometry, imageCorners, imageMatrix, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
     prims, primsOf, flatPrims, transformPrim, arcPoints, primBox, bbox, closestOnSeg, closestOnPrim, distToPrim, pointInPoly,
     segSeg, lineCircle, circleCircle, primInter, primParam, primAt, primLength, plinePrims, polyPrims,
-    plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, breakEllipse, ellipseParamOf, filletLines, chamferLines,
+    plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, breakEllipse, ellipseParamOf, ellipseUnit, filletLines, chamferLines,
     plineSlice, plineParamOf, parsePointInput,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

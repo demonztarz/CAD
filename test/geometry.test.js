@@ -297,6 +297,26 @@ test('trim an isometric bend piece by piece down to the corner quarter (edges on
   assert.ok((hit(ends[0], T1) && hit(ends[1], T2)) || (hit(ends[0], T2) && hit(ends[1], T1)), JSON.stringify(ends));
 });
 
+test('trim a line that only touches an ellipse cutter (lines first at an isometric bend)', () => {
+  const rad = Math.PI / 180, pol = (q, d, a) => ({ x: q.x + d * Math.cos(a * rad), y: q.y + d * Math.sin(a * rad) });
+  const R = 24, C = { x: 0, y: 0 }, T1 = pol(C, R, 30), T2 = pol(C, R, 270), O = pol(T1, R, 270);
+  const A = pol(C, R, 30), B = pol(C, R, 90), t0 = 0.5 * Math.atan2(2 * G.dot(A, B), G.dot(A, A) - G.dot(B, B));
+  const at = (t) => G.add(G.mul(A, Math.cos(t)), G.mul(B, Math.sin(t)));
+  let maj = at(t0), min = at(t0 + Math.PI / 2); if (G.len(min) > G.len(maj)) [maj, min] = [min, maj];
+  const iso = { type: 'ellipse', cx: O.x, cy: O.y, mx: maj.x, my: maj.y, ratio: G.len(min) / G.len(maj) };
+  const far = pol(C, 100, 30), edge = { type: 'line', x1: C.x, y1: C.y, x2: far.x, y2: far.y };    // runs into the corner
+  const res = G.trimEntity(edge, pol(C, 5, 30), [{ k: 'E', e: iso }]);                            // click near the corner
+  assert.ok(res.replace && res.replace.length === 1, JSON.stringify(res));
+  const k = res.replace[0];
+  assert.ok(Math.hypot(k.x1 - T1.x, k.y1 - T1.y) < 1e-6 && Math.hypot(k.x2 - far.x, k.y2 - far.y) < 1e-9, JSON.stringify(k));
+  // the vertical edge too, and a crossing line still meets the true curve, not its outline polygon
+  const down = pol(C, 100, 270), v = G.trimEntity({ type: 'line', x1: 0, y1: 0, x2: down.x, y2: down.y }, pol(C, 5, 270), [{ k: 'E', e: iso }]);
+  assert.ok(Math.hypot(v.replace[0].x1 - T2.x, v.replace[0].y1 - T2.y) < 1e-6, JSON.stringify(v));
+  const x = G.trimEntity({ type: 'line', x1: O.x - 100, y1: O.y, x2: O.x, y2: O.y }, { x: O.x - 1, y: O.y }, [{ k: 'E', e: iso }]);
+  const q = x.replace[0], uq = G.ellipseUnit(iso)({ x: q.x2, y: q.y2 });
+  assert.ok(Math.abs(G.len(uq) - 1) < 1e-9, 'end lies on the ellipse');
+});
+
 test('break and extend ellipses', () => {
   const e = { type: 'ellipse', cx: 0, cy: 0, mx: 20, my: 0, ratio: 0.5 }, pt = (t) => G.ellipsePoint(e, t);
   const close = (a, b) => assert.ok(Math.abs(G.normAng(a - b + 1e-9) - 1e-9) < 1e-7, a + ' vs ' + b);
