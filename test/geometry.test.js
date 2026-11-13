@@ -253,6 +253,30 @@ test('trim ellipses: full ellipse to an arc, arcs to shorter arcs, ends exactly 
   near(G.ellipsePoint(k, k.a1).y, 10, 1e-9); near(G.ellipsePoint(k, k.a2).y, 10, 1e-9);
 });
 
+test('trim an isocircle where straight edges only touch it (isometric rounded corner)', () => {
+  // Right-plane isocircle radius 20 centred r along 210 and r along 270 from a corner at the origin:
+  // it touches the 210-degree leg at T1 and the vertical side at T2
+  const r = 20, rad = Math.PI / 180, pol = (q, d, a) => ({ x: q.x + d * Math.cos(a * rad), y: q.y + d * Math.sin(a * rad) });
+  const C = { x: 0, y: 0 }, T1 = pol(C, r, 210), T2 = pol(C, r, 270), O = pol(T1, r, 270);
+  const A = { x: Math.cos(30 * rad) * r, y: Math.sin(30 * rad) * r }, B = { x: 0, y: r };
+  const t0 = 0.5 * Math.atan2(2 * (A.x * B.x + A.y * B.y), (A.x * A.x + A.y * A.y) - (B.x * B.x + B.y * B.y));
+  const M = { x: A.x * Math.cos(t0) + B.x * Math.sin(t0), y: A.y * Math.cos(t0) + B.y * Math.sin(t0) };
+  const N = { x: -A.x * Math.sin(t0) + B.x * Math.cos(t0), y: -A.y * Math.sin(t0) + B.y * Math.cos(t0) };
+  const big = Math.hypot(M.x, M.y) >= Math.hypot(N.x, N.y);
+  const maj = big ? M : N, min = big ? N : M;
+  const iso = { type: 'ellipse', cx: O.x, cy: O.y, mx: maj.x, my: maj.y, ratio: Math.hypot(min.x, min.y) / Math.hypot(maj.x, maj.y) };
+  const cutters = [
+    { k: 'L', a: pol(C, 80, 210), b: T1 }, { k: 'L', a: T2, b: pol(C, 60, 270) }, // the two edges, ending at the touch points
+    { k: 'L', a: T1, b: O }, { k: 'L', a: O, b: T2 },                             // helper spokes
+  ];
+  const far = pol(O, 30, 225);
+  const res = G.trimEntity(iso, far, cutters);
+  assert.strictEqual(res.replace.length, 1);
+  const k = res.replace[0], ends = [G.ellipsePoint(k, k.a1), G.ellipsePoint(k, k.a2)];
+  const hit = (q, T) => Math.hypot(q.x - T.x, q.y - T.y) < 1e-6;
+  assert.ok((hit(ends[0], T2) && hit(ends[1], T1)) || (hit(ends[0], T1) && hit(ends[1], T2)), JSON.stringify(ends));
+});
+
 test('dimension text hides trailing zeros only', () => {
   assert.strictEqual(G.fmtDim(50, 2, true), '50');
   assert.strictEqual(G.fmtDim(12.5, 2, true), '12.5');

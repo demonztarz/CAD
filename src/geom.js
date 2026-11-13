@@ -898,12 +898,22 @@
           if (!primInter(seg, c, false, false).length) continue;
           const f = c.k === 'L' ? (q) => cross(sub(c.b, c.a), sub(q, c.a)) : (q) => dist(q, c.c) - c.r;
           let lo = u0, hi = u1, flo = f(at(lo));
-          if (Math.sign(flo) === Math.sign(f(at(hi)))) { us.push((u0 + u1) / 2); continue; } // grazing touch
+          if (Math.sign(flo) === Math.sign(f(at(hi)))) {
+            // the cutter just touches the curve (a tangent line, e.g. at a rounded corner): find the touch point
+            // by minimising |f| around this piece instead of taking the piece's midpoint
+            let a = u0 - (u1 - u0), z = u1 + (u1 - u0);
+            for (let k = 0; k < 80; k++) { const m1 = a + (z - a) / 3, m2 = z - (z - a) / 3; if (Math.abs(f(at(m1))) < Math.abs(f(at(m2)))) z = m2; else a = m1; }
+            us.push((a + z) / 2); continue;
+          }
           for (let k = 0; k < 50; k++) { const m = (lo + hi) / 2, fm = f(at(m)); if (Math.sign(fm) === Math.sign(flo)) { lo = m; flo = fm; } else hi = m; }
           us.push((lo + hi) / 2);
         }
       }
-      const cuts = [...new Set(us.map((u) => +u.toFixed(10)))].filter((u) => full || (u > tol && u < S - tol)).sort((a, b) => a - b);
+      // merge crossings that are the same point found twice (e.g. a spoke and a tangent line meeting there)
+      const sorted = us.map((u) => (full ? normAng(u) : u)).sort((a, b) => a - b), cuts = [];
+      for (const u of sorted) if (!cuts.length || u - cuts[cuts.length - 1] > 1e-6) cuts.push(u);
+      if (full && cuts.length > 1 && TAU - cuts[cuts.length - 1] + cuts[0] < 1e-6) cuts.pop();
+      for (let i = cuts.length - 1; i >= 0; i--) if (!full && !(cuts[i] > tol && cuts[i] < S - tol)) cuts.splice(i, 1);
       const up = paramOf(pick);
       if (full) {
         if (cuts.length < 2) return cuts.length ? null : { remove: true };
