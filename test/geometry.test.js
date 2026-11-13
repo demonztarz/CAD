@@ -317,6 +317,21 @@ test('trim a line that only touches an ellipse cutter (lines first at an isometr
   assert.ok(Math.abs(G.len(uq) - 1) < 1e-9, 'end lies on the ellipse');
 });
 
+test('offset ellipses exactly: ends meet neighbouring offsets, inner loops cut out, true distance', () => {
+  const e = { type: 'ellipse', cx: 0, cy: 0, mx: 24.5, my: 0, ratio: 14.14 / 24.5 }, d = 9.8;
+  const normalAt = (t) => { const T = { x: -24.5 * Math.sin(t), y: 14.14 * Math.cos(t) }, n = G.norm({ x: T.y, y: -T.x }); return n; };
+  const arc = { ...e, a1: 0.4, a2: 2.2 }, o = G.offsetEntity(arc, d, { x: 100, y: 100 });
+  for (const [q, t] of [[o.pts[0], 0.4], [o.pts[o.pts.length - 1], 2.2]]) {
+    const want = G.add(G.ellipsePoint(e, t), G.mul(normalAt(t), d));
+    assert.ok(Math.hypot(q.x - want.x, q.y - want.y) < 1e-9, 'offset end lies on the exact offset');
+  }
+  const inner = G.offsetEntity(e, d, { x: 0.1, y: 0 }), P = inner.pts, n = P.length;
+  for (let a = 0; a < n; a++) for (let b = a + 2; b < n; b++) if (!(a === 0 && b === n - 1)) assert.strictEqual(G.segSeg(P[a], P[(a + 1) % n], P[b], P[(b + 1) % n], false).length, 0, 'no loops');
+  assert.strictEqual(G.offsetEntity(e, 20, { x: 0.1, y: 0 }), null, 'cannot offset inwards past the minor axis');
+  const far = G.add(G.ellipsePoint(e, 1), G.mul(normalAt(1), 3));
+  assert.ok(Math.abs(G.distToEllipse(e, far) - 3) < 1e-9);
+});
+
 test('break and extend ellipses', () => {
   const e = { type: 'ellipse', cx: 0, cy: 0, mx: 20, my: 0, ratio: 0.5 }, pt = (t) => G.ellipsePoint(e, t);
   const close = (a, b) => assert.ok(Math.abs(G.normAng(a - b + 1e-9) - 1e-9) < 1e-7, a + ' vs ' + b);

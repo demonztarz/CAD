@@ -588,17 +588,18 @@
     const through = d === 'Through';
     if (!through) { if (!(d > 0)) { S.msg('Value must be positive and nonzero.', 'err'); return; } S.offsetDist = d; }
     const can = (e) => ['line', 'circle', 'arc', 'pline', 'ellipse'].includes(e.type);
+    const throughDist = (e, p) => e.type === 'ellipse' ? G.distToEllipse(e, p) : Math.min(...S.prims(e).map((pr) => G.distToPrim(p, pr)));
     for (;;) {
       const r = await S.getEntity('Select object to offset or <exit>', { filter: can, allowNone: true, keywords: ['Exit'] }).catch((err) => { throw err; });
       if (r == null || r === 'Exit') return;
       const e = r.e;
       const side = await S.getPoint(through ? 'Specify through point' : 'Specify point on side to offset', {
         preview: (p) => {
-          const dd = through ? Math.min(...S.prims(e).map((pr) => G.distToPrim(p, pr))) : d;
+          const dd = through ? throughDist(e, p) : d;
           const o = G.offsetEntity(e, dd, p); return o ? [o] : [];
         },
       });
-      const dd = through ? Math.min(...S.prims(e).map((pr) => G.distToPrim(side, pr))) : d;
+      const dd = through ? throughDist(e, side) : d;
       const o = G.offsetEntity(e, dd, side);
       if (o) S.addRaw([o]); else S.msg('Cannot offset that object by that distance.', 'err');
     }

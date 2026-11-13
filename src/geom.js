@@ -746,13 +746,7 @@
         const r = e.r + (out ? d : -d);
         return r > 1e-9 ? { ...e, r } : null;
       }
-      case 'ellipse': {
-        // approximate with a polyline offset
-        const pts = ellipsePoints(e, 128), closed = isFullEllipse(e);
-        if (closed) pts.pop();
-        const base = { type: 'pline', layer: e.layer, color: e.color, ltype: e.ltype, lw: e.lw };
-        return offsetEntity({ ...base, pts: pts.map((p) => ({ x: p.x, y: p.y, b: 0 })), closed }, d, side);
-      }
+      case 'ellipse': return ellipseOffset(e, d, side);
       case 'pline': {
         const pts = e.pts, n = pts.length;
         if (n < 2) return null;
@@ -1005,6 +999,48 @@
     return out;
   }
 
+  /** Offset an ellipse or elliptical arc by d towards `side`: a polyline through exact offset points (so its
+   *  ends meet the offsets of lines and curves joining the ellipse), with the loop that forms where an inner
+   *  offset is tighter than the curve cut out. */
+  function ellipseOffset(e, d, side) {
+    const full = isFullEllipse(e), a1 = full ? 0 : (e.a1 ?? 0), S = full ? TAU : sweep(a1, e.a2);
+    const c = P(e.cx, e.cy), M = P(e.mx, e.my), N = P(-e.my * e.ratio, e.mx * e.ratio);
+    const out = len(ellipseUnit(e)(side)) >= 1;
+    if (!out && d >= Math.min(len(M), len(N)) - 1e-9) return null;
+    const n = Math.max(16, Math.ceil(256 * S / TAU)), pts = [];
+    for (let i = 0; i <= n; i++) {
+      const t = a1 + (S * i) / n, p = ellipsePoint(e, t), T = add(mul(M, -Math.sin(t)), mul(N, Math.cos(t)));
+      let nv = norm(P(T.y, -T.x));
+      if ((dot(nv, sub(p, c)) < 0) === out) nv = mul(nv, -1);
+      pts.push(add(p, mul(nv, d)));
+    }
+    if (full) pts.pop();
+    // cut out self-crossing loops: join the first crossing pair of segments directly
+    for (let guard = 0; guard < 8; guard++) {
+      let cut = null;
+      const m = full ? pts.length : pts.length - 1;
+      for (let i = 0; i < m && !cut; i++) for (let j = i + 2; j < m; j++) {
+        if (full && i === 0 && j === m - 1) continue;
+        const x = segSeg(pts[i], pts[(i + 1) % pts.length], pts[j], pts[(j + 1) % pts.length], false);
+        if (x.length) { cut = { i, j, p: x[0].p }; break; }
+      }
+      if (!cut) break;
+      pts.splice(cut.i + 1, cut.j - cut.i, cut.p);
+    }
+    if (pts.length < 2) return null;
+    return { type: 'pline', layer: e.layer, color: e.color, ltype: e.ltype, lw: e.lw, pts: pts.map((p) => ({ x: p.x, y: p.y, b: 0 })), closed: full };
+  }
+
+  /** Distance from p to an ellipse or elliptical arc (the true curve, not its drawn outline). */
+  function distToEllipse(e, p) {
+    const full = isFullEllipse(e), a1 = full ? 0 : (e.a1 ?? 0), S = full ? TAU : sweep(a1, e.a2), f = (u) => dist(ellipsePoint(e, a1 + u), p);
+    let bu = 0, bd = f(0);
+    for (let i = 1; i <= 720; i++) { const u = (S * i) / 720, d = f(u); if (d < bd) { bd = d; bu = u; } }
+    let lo = Math.max(full ? -Infinity : 0, bu - S / 720), hi = Math.min(full ? Infinity : S, bu + S / 720);
+    for (let k = 0; k < 60; k++) { const m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3; if (f(m1) < f(m2)) hi = m2; else lo = m1; }
+    return Math.min(bd, f((lo + hi) / 2));
+  }
+
   /** Map a point into the ellipse's own frame, where the ellipse is the unit circle. */
   function ellipseUnit(e) {
     const M = P(e.mx, e.my), N = P(-e.my * e.ratio, e.mx * e.ratio), c = P(e.cx, e.cy);
@@ -1148,7 +1184,7 @@
     TEXT, textBox, textCorners, textInkCorners, textCenter, fmtNum, fmtDim, dimFrame, dimGeometry, imageCorners, imageMatrix, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
     prims, primsOf, flatPrims, transformPrim, arcPoints, primBox, bbox, closestOnSeg, closestOnPrim, distToPrim, pointInPoly,
     segSeg, lineCircle, circleCircle, primInter, primParam, primAt, primLength, plinePrims, polyPrims,
-    plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, breakEllipse, ellipseParamOf, ellipseUnit, filletLines, chamferLines,
+    plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, breakEllipse, ellipseParamOf, ellipseUnit, distToEllipse, filletLines, chamferLines,
     plineSlice, plineParamOf, parsePointInput,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
