@@ -49,7 +49,7 @@ code-signed. Choose **More info → Run anyway**.
 - **Layer list:** the layer box on the Home tab drops down a list of all layers with clickable on/off, freeze and lock icons (it stays open for several changes); click a name to make it current, or to move selected objects onto it.
 - **Isometric "All planes":** besides Left / Top / Right, the isoplane can be All (F5 cycles to it, or `ISODRAFT` → All): the crosshair shows all three iso axes and Ortho locks to whichever is nearest, so all six iso directions work without switching planes. Isocircles then ask which face they are on.
 - **Drafting mode per drawing:** isometric mode and its plane, Ortho, Snap, Grid, the snap angle and the snap/grid spacing are remembered by each drawing (and saved in the `.dfg`), like AutoCAD; switching tabs switches them. New drawings start in normal drafting.
-- **Trimming ellipses:** `TRIM` works on ellipses and elliptical arcs, including isocircles; the trimmed ends land exactly on the cutting edges.
+- **Trimming, breaking and extending ellipses:** `TRIM` works on ellipses and elliptical arcs, including isocircles; the trimmed ends land exactly on the cutting edges, and edges that only touch the curve (an isometric bend) count. `BREAK` cuts a gap out of an ellipse (counterclockwise from the first point to the second, as for circles) or an elliptical arc, and `EXTEND` lengthens an elliptical arc to the next boundary.
 - **Interface:** ribbon, command line with autocomplete and history, dynamic input tooltip, window/crossing selection, right-click menus, undo/redo
 - **Files:** open DWG (R14 through 2018+), DXF and DraftForgeCAD `.dfg`; save `.dfg` or DXF R12; export SVG, PNG and PDF
 

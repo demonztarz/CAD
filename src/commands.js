@@ -630,7 +630,7 @@
   R('EXTEND', async () => {
     S.msg('Current settings: Mode = Quick, all visible objects act as boundary edges');
     for (;;) {
-      const r = await S.getEntity('Select object to extend or', { filter: (e) => ['line', 'arc', 'pline'].includes(e.type), allowNone: true, keywords: ['Undo'] });
+      const r = await S.getEntity('Select object to extend or', { filter: (e) => ['line', 'arc', 'pline'].includes(e.type) || (e.type === 'ellipse' && e.a2 != null), allowNone: true, keywords: ['Undo'] });
       if (r == null) return;
       if (r === 'Undo') { S.undo(); continue; }
       const res = G.extendEntity(r.e, r.p, cuttersFor(r.e));
@@ -820,11 +820,16 @@
   }, { aliases: ['J'], desc: 'Joins lines, arcs and polylines into a single polyline', group: 'Modify' });
 
   R('BREAK', async () => {
-    const r = await S.getEntity('Select object', { filter: (e) => ['line', 'arc', 'circle', 'pline'].includes(e.type) });
+    const r = await S.getEntity('Select object', { filter: (e) => ['line', 'arc', 'circle', 'pline', 'ellipse'].includes(e.type) });
     let p1 = r.p;
     let p2 = await S.getPoint('Specify second break point or', { keywords: ['First point'] });
     if (p2 === 'First point') { p1 = await S.getPoint('Specify first break point'); p2 = await S.getPoint('Specify second break point'); }
     const e = r.e;
+    if (e.type === 'ellipse') {
+      const out = G.breakEllipse(e, p1, p2);
+      if (!out) { S.msg('Unable to break the object there.', 'err'); return; }
+      S.replace(new Map([[e, out]])); return;
+    }
     const near = (p) => { let best = null, bd = Infinity; for (const pr of S.prims(e)) { const c = G.closestOnPrim(p, pr), d = G.dist(c, p); if (d < bd) { bd = d; best = c; } } return best; };
     const a = near(p1), b = near(p2);
     // two zero-length cutters at the break points, trim the piece between them

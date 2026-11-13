@@ -297,6 +297,30 @@ test('trim an isometric bend piece by piece down to the corner quarter (edges on
   assert.ok((hit(ends[0], T1) && hit(ends[1], T2)) || (hit(ends[0], T2) && hit(ends[1], T1)), JSON.stringify(ends));
 });
 
+test('break and extend ellipses', () => {
+  const e = { type: 'ellipse', cx: 0, cy: 0, mx: 20, my: 0, ratio: 0.5 }, pt = (t) => G.ellipsePoint(e, t);
+  const close = (a, b) => assert.ok(Math.abs(G.normAng(a - b + 1e-9) - 1e-9) < 1e-7, a + ' vs ' + b);
+  // full ellipse: the part counterclockwise from the first point to the second goes
+  const [k] = G.breakEllipse(e, pt(0.5), pt(1.5));
+  close(k.a1, 1.5); close(k.a2, 0.5);
+  // elliptical arc: the middle goes, two pieces stay; the same point twice splits it
+  const arc = { ...e, a1: 0, a2: 3 };
+  const two = G.breakEllipse(arc, pt(1), pt(2));
+  assert.strictEqual(two.length, 2); close(two[0].a2, 1); close(two[1].a1, 2);
+  const split = G.breakEllipse(arc, pt(1), pt(1));
+  assert.strictEqual(split.length, 2); close(split[0].a2, 1); close(split[1].a1, 1);
+  // a second point beyond the end removes up to that end
+  const end = G.breakEllipse(arc, pt(2), pt(3.3));
+  assert.strictEqual(end.length, 1); close(end[0].a2, 2);
+  // extend the end nearest the pick to the next boundary (a vertical line at x = -10)
+  const L = { k: 'L', a: { x: -10, y: -50 }, b: { x: -10, y: 50 } };
+  const ext = G.extendEntity({ ...e, a1: 0, a2: 1 }, pt(0.95), [L]);
+  assert.ok(Math.abs(G.ellipsePoint(ext, ext.a2).x + 10) < 1e-7 && ext.a1 === 0, JSON.stringify(ext));
+  const back = G.extendEntity({ ...e, a1: 0, a2: 1 }, pt(0.05), [L]);
+  assert.ok(Math.abs(G.ellipsePoint(back, back.a1).x + 10) < 1e-7 && back.a2 === 1, JSON.stringify(back));
+  assert.strictEqual(G.extendEntity({ ...e, a1: 0, a2: 1 }, pt(0.9), []), null);
+});
+
 test('dimension text hides trailing zeros only', () => {
   assert.strictEqual(G.fmtDim(50, 2, true), '50');
   assert.strictEqual(G.fmtDim(12.5, 2, true), '12.5');

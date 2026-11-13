@@ -63,8 +63,6 @@ planning a version. Newest discussions are at the top of each section.
 
 ## Modify
 
-- **BREAK and EXTEND for ellipses** – cut a gap out of an ellipse or elliptical arc, and lengthen an
-  elliptical arc to a boundary (TRIM already handles ellipses; these can reuse its crossing finder).
 - **Break at Point** – split a line into two pieces at one point without removing anything, plus a
   Break button on the ribbon.
 
