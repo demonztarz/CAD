@@ -890,11 +890,25 @@
       const at = (u) => ellipsePoint(e, a1 + u);
       const M = P(e.mx, e.my), N = P(-e.my * e.ratio, e.mx * e.ratio);
       const paramOf = (p) => { const d = sub(p, P(e.cx, e.cy)); return normAng(Math.atan2(dot(d, N) / dot(N, N), dot(d, M) / dot(M, M)) - a1); };
-      // crossings: found on a fine polyline, then refined by bisection on the cutter's side function
-      const n = 256, us = [];
+      const us = [];
+      // straight cutters: exact, in the ellipse's own frame where it is the unit circle (a line that only
+      // touches the curve, like the edges at a rounded isometric corner, counts as one cut point)
+      const unit = (q) => { const d = sub(q, P(e.cx, e.cy)); return P(dot(d, M) / dot(M, M), dot(d, N) / dot(N, N)); };
+      for (const c of cutters) {
+        if (c.k !== 'L') continue;
+        const A0 = unit(c.a), D = sub(unit(c.b), A0), qa = dot(D, D);
+        if (qa < 1e-18) continue;
+        const qb = 2 * dot(A0, D), qc = dot(A0, A0) - 1, disc = qb * qb - 4 * qa * qc;
+        if (disc < -1e-6 * qa) continue;
+        const sq = Math.sqrt(Math.max(0, disc)), ss = sq < 1e-9 * Math.sqrt(qa) ? [-qb / (2 * qa)] : [(-qb - sq) / (2 * qa), (-qb + sq) / (2 * qa)];
+        for (const t of ss) if (t >= -1e-9 && t <= 1 + 1e-9) { const Q = add(A0, mul(D, t)); us.push(normAng(Math.atan2(Q.y, Q.x) - a1)); }
+      }
+      // curved cutters (arcs, circles): found on a fine polyline, then refined by bisection
+      const n = 256;
       for (let i = 0; i < n; i++) {
         const u0 = (S * i) / n, u1 = (S * (i + 1)) / n, seg = { k: 'L', a: at(u0), b: at(u1) };
         for (const c of cutters) {
+          if (c.k === 'L') continue;
           if (!primInter(seg, c, false, false).length) continue;
           const f = c.k === 'L' ? (q) => cross(sub(c.b, c.a), sub(q, c.a)) : (q) => dist(q, c.c) - c.r;
           let lo = u0, hi = u1, flo = f(at(lo));

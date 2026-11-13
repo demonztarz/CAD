@@ -277,6 +277,26 @@ test('trim an isocircle where straight edges only touch it (isometric rounded co
   assert.ok((hit(ends[0], T2) && hit(ends[1], T1)) || (hit(ends[0], T1) && hit(ends[1], T2)), JSON.stringify(ends));
 });
 
+test('trim an isometric bend piece by piece down to the corner quarter (edges only touch it)', () => {
+  const rad = Math.PI / 180, pol = (q, d, a) => ({ x: q.x + d * Math.cos(a * rad), y: q.y + d * Math.sin(a * rad) });
+  const R = 24, w = 16, C = { x: 0, y: 0 }, T1 = pol(C, R, 30), T2 = pol(C, R, 270), O = pol(T1, R, 270);
+  const A = pol(C, R, 30), B = pol(C, R, 90), t0 = 0.5 * Math.atan2(2 * G.dot(A, B), G.dot(A, A) - G.dot(B, B));
+  const at = (t) => G.add(G.mul(A, Math.cos(t)), G.mul(B, Math.sin(t)));
+  let maj = at(t0), min = at(t0 + Math.PI / 2); if (G.len(min) > G.len(maj)) [maj, min] = [min, maj];
+  const L = (a, b) => ({ k: 'L', a, b });
+  const cutters = [L(T1, pol(C, 150, 30)), L(T2, pol(C, 150, 270)), L(pol(pol(C, w, 270), w, 30), pol(pol(C, w, 270), 150, 30)), L(pol(pol(C, w, 30), w, 270), pol(pol(C, w, 30), 150, 270))];
+  const hit = (q, T) => Math.hypot(q.x - T.x, q.y - T.y) < 1e-6;
+  let e = { type: 'ellipse', cx: O.x, cy: O.y, mx: maj.x, my: maj.y, ratio: G.len(min) / G.len(maj) };
+  e = G.trimEntity(e, G.add(O, G.sub(O, C)), cutters).replace[0];             // far side of the full isocircle
+  for (let k = 0; k < 2; k++) {                                                // then the leftover ends, clicked away from the corner
+    const s = G.ellipsePoint(e, e.a1), fromStart = !hit(s, T1) && !hit(s, T2), S = G.sweep(e.a1, e.a2);
+    const r = G.trimEntity(e, G.ellipsePoint(e, e.a1 + (fromStart ? 0.05 : 0.95) * S), cutters);
+    assert.strictEqual(r.replace.length, 1); e = r.replace[0];
+  }
+  const ends = [G.ellipsePoint(e, e.a1), G.ellipsePoint(e, e.a2)];
+  assert.ok((hit(ends[0], T1) && hit(ends[1], T2)) || (hit(ends[0], T2) && hit(ends[1], T1)), JSON.stringify(ends));
+});
+
 test('dimension text hides trailing zeros only', () => {
   assert.strictEqual(G.fmtDim(50, 2, true), '50');
   assert.strictEqual(G.fmtDim(12.5, 2, true), '12.5');
