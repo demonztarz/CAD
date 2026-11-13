@@ -822,8 +822,10 @@
     }
     if (e.type === 'ellipse') {
       add('cen', P(e.cx, e.cy));
-      if (G.isFullEllipse(e)) for (const t of [0, Math.PI / 2, Math.PI, 1.5 * Math.PI]) add('qua', G.ellipsePoint(e, t));
-      else { add('end', G.ellipsePoint(e, e.a1)); add('end', G.ellipsePoint(e, e.a2)); }
+      const full = G.isFullEllipse(e);
+      // axis ends (quadrants), on an elliptical arc only those still on it
+      for (const t of [0, Math.PI / 2, Math.PI, 1.5 * Math.PI]) if (full || G.angInArc(t, e.a1, e.a2)) add('qua', G.ellipsePoint(e, t));
+      if (!full) { add('end', G.ellipsePoint(e, e.a1)); add('end', G.ellipsePoint(e, e.a2)); }
     }
     if (e.type === 'spline') { const sp = splinePts(e); if (sp.length) { add('end', sp[0]); add('end', sp[sp.length - 1]); } }
     for (const p of pr) {
