@@ -682,6 +682,8 @@
     const group = (title, rows) => h('div', { cls: 'pgroup' }, h('div', { cls: 'ph' }, title), rows);
     const row = (label, valEl) => h('div', { cls: 'prow' }, h('label', { title: label }, label), h('div', { cls: 'pv' }, valEl));
     const ro = (v) => h('div', { cls: 'ro', title: String(v) }, String(v));
+    // a read-only value of every selected object: the shared value, or *VARIES* (compared as displayed)
+    const same = (fn) => { const vals = new Set(list.map(fn)); return ro(vals.size === 1 ? [...vals][0] : '*VARIES*'); };
     const apply = (fn) => {
       S.runningName = 'Properties';
       const map = new Map(), fresh = [];
@@ -775,22 +777,22 @@
         case 'line':
           rows.push(num('Start X', (e) => e.x1, (e, v) => ({ ...e, x1: v })), num('Start Y', (e) => e.y1, (e, v) => ({ ...e, y1: v })),
             num('End X', (e) => e.x2, (e, v) => ({ ...e, x2: v })), num('End Y', (e) => e.y2, (e, v) => ({ ...e, y2: v })));
-          if (one) rows.push(row('Delta X', ro(S.fmt(one.x2 - one.x1))), row('Delta Y', ro(S.fmt(one.y2 - one.y1))), row('Length', ro(S.fmt(Math.hypot(one.x2 - one.x1, one.y2 - one.y1)))), row('Angle', ro(S.fmt(deg(Math.atan2(one.y2 - one.y1, one.x2 - one.x1)), 2) + '°')));
+          rows.push(row('Delta X', same((e) => S.fmt(e.x2 - e.x1))), row('Delta Y', same((e) => S.fmt(e.y2 - e.y1))), row('Length', same((e) => S.fmt(Math.hypot(e.x2 - e.x1, e.y2 - e.y1)))), row('Angle', same((e) => S.fmt(deg(Math.atan2(e.y2 - e.y1, e.x2 - e.x1)), 2) + '°')));
           break;
         case 'circle':
           rows.push(num('Center X', (e) => e.cx, (e, v) => ({ ...e, cx: v })), num('Center Y', (e) => e.cy, (e, v) => ({ ...e, cy: v })),
             num('Radius', (e) => e.r, (e, v) => (v > 0 ? { ...e, r: v } : e)), num('Diameter', (e) => 2 * e.r, (e, v) => (v > 0 ? { ...e, r: v / 2 } : e)));
-          if (one) rows.push(row('Circumference', ro(S.fmt(2 * Math.PI * one.r))), row('Area', ro(S.fmt(Math.PI * one.r * one.r))));
+          rows.push(row('Circumference', same((e) => S.fmt(2 * Math.PI * e.r))), row('Area', same((e) => S.fmt(Math.PI * e.r * e.r))));
           break;
         case 'arc':
           rows.push(num('Center X', (e) => e.cx, (e, v) => ({ ...e, cx: v })), num('Center Y', (e) => e.cy, (e, v) => ({ ...e, cy: v })),
             num('Radius', (e) => e.r, (e, v) => (v > 0 ? { ...e, r: v } : e)),
             num('Start angle', (e) => deg(e.a1), (e, v) => ({ ...e, a1: G.normAng(G.rad(v)) })), num('End angle', (e) => deg(e.a2), (e, v) => ({ ...e, a2: G.normAng(G.rad(v)) })));
-          if (one) rows.push(row('Total angle', ro(S.fmt(G.deg(G.sweep(one.a1, one.a2)), 2) + '°')), row('Arc length', ro(S.fmt(one.r * G.sweep(one.a1, one.a2)))));
+          rows.push(row('Total angle', same((e) => S.fmt(G.deg(G.sweep(e.a1, e.a2)), 2) + '°')), row('Arc length', same((e) => S.fmt(e.r * G.sweep(e.a1, e.a2)))));
           break;
         case 'pline':
           rows.push(sel('Closed', [['1', 'Yes'], ['0', 'No']], (e) => (e.closed ? '1' : '0'), (e, v) => ({ ...e, closed: v === '1' })));
-          if (one) rows.push(row('Vertices', ro(one.pts.length)), row('Length', ro(S.fmt(G.plineLength(one)))), ...(one.closed ? [row('Area', ro(S.fmt(G.plineArea(one))))] : []));
+          rows.push(row('Vertices', same((e) => e.pts.length)), row('Length', same((e) => S.fmt(G.plineLength(e)))), ...(list.every((e) => e.closed) ? [row('Area', same((e) => S.fmt(G.plineArea(e))))] : []));
           break;
         case 'text':
           rows.push(str('Contents', (e) => e.text.replace(/\n/g, '\\P'), (e, v) => ({ ...e, text: v.replace(/\\P/g, '\n') })),
@@ -822,7 +824,7 @@
         case 'ellipse':
           rows.push(num('Center X', (e) => e.cx, (e, v) => ({ ...e, cx: v })), num('Center Y', (e) => e.cy, (e, v) => ({ ...e, cy: v })),
             num('Radius ratio', (e) => e.ratio, (e, v) => (v > 0 && v <= 1 ? { ...e, ratio: v } : e)));
-          if (one) rows.push(row('Major radius', ro(S.fmt(Math.hypot(one.mx, one.my)))), row('Minor radius', ro(S.fmt(Math.hypot(one.mx, one.my) * one.ratio))));
+          rows.push(row('Major radius', same((e) => S.fmt(Math.hypot(e.mx, e.my)))), row('Minor radius', same((e) => S.fmt(Math.hypot(e.mx, e.my) * e.ratio))));
           break;
         case 'point':
           rows.push(num('Position X', (e) => e.x, (e, v) => ({ ...e, x: v })), num('Position Y', (e) => e.y, (e, v) => ({ ...e, y: v })));
