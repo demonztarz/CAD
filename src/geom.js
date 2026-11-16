@@ -1047,6 +1047,28 @@
     return (q) => { const d = sub(q, c); return P(dot(d, M) / dot(M, M), dot(d, N) / dot(N, N)); };
   }
 
+  /** BREAK at one point: split a line, arc, open or closed polyline, or elliptical arc in two there with no
+   *  gap (a closed polyline opens there). Returns the pieces, or null where it cannot (circle, full ellipse,
+   *  or the point is an end). */
+  function splitAt(e, p) {
+    const tol = 1e-9;
+    if (e.type === 'line') {
+      const a = P(e.x1, e.y1), b = P(e.x2, e.y2), t = closestOnSeg(p, a, b).t, q = lerp(a, b, t);
+      return t > tol && t < 1 - tol ? [{ ...e, x2: q.x, y2: q.y }, { ...e, x1: q.x, y1: q.y }] : null;
+    }
+    if (e.type === 'arc') {
+      const u = normAng(ang(P(e.cx, e.cy), p) - e.a1), S = sweep(e.a1, e.a2);
+      return u > tol && u < S - tol ? [{ ...e, a2: normAng(e.a1 + u) }, { ...e, a1: normAng(e.a1 + u) }] : null;
+    }
+    if (e.type === 'ellipse') { const out = isFullEllipse(e) ? null : breakEllipse(e, p, p); return out && out.length === 2 ? out : null; }
+    if (e.type === 'pline') {
+      const T = e.closed ? e.pts.length : e.pts.length - 1, t = plineParamOf(e, p);
+      if (e.closed) { const a = plineSlice(e, t, T), b = plineSlice(e, 0, t); a.pop(); return [{ ...e, closed: false, pts: a.concat(b) }]; }
+      return t > tol && t < T - tol ? [{ ...e, pts: plineSlice(e, 0, t) }, { ...e, pts: plineSlice(e, t, T) }] : null;
+    }
+    return null;
+  }
+
   /** Ellipse parameter t (as in ellipsePoint) of the point on the ellipse in the direction of p. */
   function ellipseParamOf(e, p) {
     const M = P(e.mx, e.my), N = P(-e.my * e.ratio, e.mx * e.ratio), d = sub(p, P(e.cx, e.cy));
@@ -1184,7 +1206,7 @@
     TEXT, textBox, textCorners, textInkCorners, textCenter, fmtNum, fmtDim, dimFrame, dimGeometry, imageCorners, imageMatrix, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
     prims, primsOf, flatPrims, transformPrim, arcPoints, primBox, bbox, closestOnSeg, closestOnPrim, distToPrim, pointInPoly,
     segSeg, lineCircle, circleCircle, primInter, primParam, primAt, primLength, plinePrims, polyPrims,
-    plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, breakEllipse, ellipseParamOf, ellipseUnit, distToEllipse, filletLines, chamferLines,
+    plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, breakEllipse, splitAt, ellipseParamOf, ellipseUnit, distToEllipse, filletLines, chamferLines,
     plineSlice, plineParamOf, parsePointInput,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

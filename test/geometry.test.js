@@ -332,6 +332,20 @@ test('offset ellipses exactly: ends meet neighbouring offsets, inner loops cut o
   assert.ok(Math.abs(G.distToEllipse(e, far) - 3) < 1e-9);
 });
 
+test('split at one point (BREAK with the same point twice)', () => {
+  const [a, b] = G.splitAt({ type: 'line', x1: 0, y1: 0, x2: 2450, y2: 0 }, { x: 677, y: 0 });
+  assert.deepStrictEqual([a.x1, a.x2, b.x1, b.x2], [0, 677, 677, 2450]);
+  assert.strictEqual(G.splitAt({ type: 'line', x1: 0, y1: 0, x2: 10, y2: 0 }, { x: 0, y: 0 }), null, 'an end point splits nothing');
+  const arc = G.splitAt({ type: 'arc', cx: 0, cy: 0, r: 10, a1: 0, a2: Math.PI }, { x: 0, y: 10 });
+  assert.ok(Math.abs(arc[0].a2 - Math.PI / 2) < 1e-12 && Math.abs(arc[1].a1 - Math.PI / 2) < 1e-12);
+  const pl = G.splitAt({ type: 'pline', pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }], closed: false }, { x: 10, y: 4 });
+  assert.deepStrictEqual(pl.map((e) => e.pts.length), [3, 2]);
+  const box = G.splitAt({ type: 'pline', pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }], closed: true }, { x: 5, y: 0 });
+  assert.strictEqual(box.length, 1); assert.strictEqual(box[0].closed, false);
+  assert.ok(G.same(box[0].pts[0], { x: 5, y: 0 }) && G.same(box[0].pts[box[0].pts.length - 1], { x: 5, y: 0 }), 'opened at the point');
+  assert.strictEqual(G.splitAt({ type: 'circle', cx: 0, cy: 0, r: 5 }, { x: 5, y: 0 }), null);
+});
+
 test('break and extend ellipses', () => {
   const e = { type: 'ellipse', cx: 0, cy: 0, mx: 20, my: 0, ratio: 0.5 }, pt = (t) => G.ellipsePoint(e, t);
   const close = (a, b) => assert.ok(Math.abs(G.normAng(a - b + 1e-9) - 1e-9) < 1e-7, a + ' vs ' + b);

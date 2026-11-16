@@ -824,9 +824,17 @@
   R('BREAK', async () => {
     const r = await S.getEntity('Select object', { filter: (e) => ['line', 'arc', 'circle', 'pline', 'ellipse'].includes(e.type) });
     let p1 = r.p;
+    S.lastPoint = p1; // so "@" for the second point means the same point
     let p2 = await S.getPoint('Specify second break point or', { keywords: ['First point'] });
     if (p2 === 'First point') { p1 = await S.getPoint('Specify first break point'); p2 = await S.getPoint('Specify second break point'); }
     const e = r.e;
+    // the same point twice: split there with no gap, as AutoCAD does
+    if (G.dist(p1, p2) <= 1e-9 * (1 + Math.abs(p1.x) + Math.abs(p1.y))) {
+      const q = e.type === 'ellipse' ? p1 : S.prims(e).map((pr) => G.closestOnPrim(p1, pr)).sort((a, b) => G.dist(a, p1) - G.dist(b, p1))[0];
+      const out = G.splitAt(e, q);
+      if (!out) { S.msg(e.type === 'circle' || e.type === 'ellipse' ? 'A closed circle or ellipse cannot be split at one point; pick two points.' : 'That point is an end of the object; nothing to split.', 'err'); return; }
+      S.replace(new Map([[e, out]])); S.msg(out.length === 2 ? 'Split into 2 objects.' : 'Opened at that point.'); return;
+    }
     if (e.type === 'ellipse') {
       const out = G.breakEllipse(e, p1, p2);
       if (!out) { S.msg('Unable to break the object there.', 'err'); return; }
