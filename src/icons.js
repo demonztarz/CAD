@@ -21,6 +21,7 @@
     rotate: s('M18 8 A8 8 0 1 0 19 15', B) + s('M18 3 V8 H13', W) + dot(12, 12),
     trim: s('M4 6 H20', B) + s('M4 18 H20', B) + s('M12 3 V21', W) + s('M14 12 L20 12', R, 1.4),
     extend: s('M4 12 H13', B) + s('M13 12 H19', B, 1.2) + s('M20 4 V20', W) + s('M16 9 L19 12 L16 15', O),
+    lengthen: s('M3 12 H14', B) + s('M14 12 H21', B, 1.2) + s('M3 8 V16', W) + s('M18 9 L21 12 L18 15', O),
     copy: s('M4 9 H14 V20 H4 Z', W) + s('M9 4 H20 V15 H9 Z', B),
     mirror: s('M12 3 V21', O, 1.2) + s('M3 18 L9 6 V18 Z', B) + s('M21 18 L15 6 V18 Z', W),
     fillet: s('M4 4 V12 A8 8 0 0 0 12 20 H20', B) + s('M4 4 V20 H20', W, 0.8),

@@ -42,7 +42,7 @@
         col(sm('rotate', 'Rotate', 'ROTATE'), sm('mirror', 'Mirror', 'MIRROR'), sm('scale', 'Scale', 'SCALE')),
         col(sm('trim', 'Trim', 'TRIM'), sm('extend', 'Extend', 'EXTEND'), sm('offset', 'Offset', 'OFFSET')),
         col(sm('fillet', 'Fillet', 'FILLET'), sm('erase', 'Erase', 'ERASE'), sm('array', 'Array', 'ARRAYRECT'))],
-        more: [sm('chamfer', 'Chamfer', 'CHAMFER'), sm('join', 'Join', 'JOIN'), sm('explode', 'Explode', 'EXPLODE'), sm('break', 'Break', 'BREAK'), sm('arraypolar', 'Polar Array', 'ARRAYPOLAR')] },
+        more: [sm('chamfer', 'Chamfer', 'CHAMFER'), sm('join', 'Join', 'JOIN'), sm('explode', 'Explode', 'EXPLODE'), sm('break', 'Break', 'BREAK'), sm('lengthen', 'Lengthen', 'LENGTHEN'), sm('arraypolar', 'Polar Array', 'ARRAYPOLAR')] },
       { title: 'Layers', keep: 2, items: [col(ctl('layer'), { t: 'row', items: [sm('layers', 'Layer Properties', 'LAYER'), sm('laycur', 'Make Object\'s Layer Current', 'LAYMCUR'), sm('matchprop', 'Match Layer', 'MATCHPROP')] })] },
       { title: 'Properties', keep: 2, expand: 5, items: [col(ctl('color'), ctl('lw'), ctl('ltype'))], more: [sm('matchprop', 'Match Properties', 'MATCHPROP')] },
       { title: 'Annotation', keep: 1, expand: 3, items: [big('text', 'Text', 'TEXT'), big('dimlinear', 'Dimension', 'DIMLINEAR')],

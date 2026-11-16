@@ -1088,6 +1088,69 @@
     return out;
   }
 
+  // ---------- LENGTHEN ----------
+  /** Length of a line, arc or open polyline (null for anything else). */
+  function entLength(e) {
+    if (e.type === 'line') return Math.hypot(e.x2 - e.x1, e.y2 - e.y1);
+    if (e.type === 'arc') return e.r * sweep(e.a1, e.a2);
+    if (e.type === 'pline' && !e.closed && e.pts.length >= 2) return plineLength(e);
+    return null;
+  }
+  /** Which end LENGTHEN changes: the one nearer the pick. */
+  function lengthenEnd(e, pick) {
+    if (e.type === 'line') return dist(pick, P(e.x2, e.y2)) < dist(pick, P(e.x1, e.y1));
+    if (e.type === 'arc') { const c = P(e.cx, e.cy); return dist(pick, polar(c, e.a2, e.r)) < dist(pick, polar(c, e.a1, e.r)); }
+    return dist(pick, e.pts[e.pts.length - 1]) < dist(pick, e.pts[0]);
+  }
+  /** Change the length of e to `total` at the end nearer `pick`, keeping its direction (lines, end segments
+   *  of polylines) or its curve (arcs, arc end segments). Null if it cannot (zero length, a full circle). */
+  function lengthenTo(e, pick, total) {
+    const L = entLength(e);
+    if (L == null || !(total > 1e-9)) return null;
+    const atEnd = lengthenEnd(e, pick);
+    if (e.type === 'line') {
+      const A = P(e.x1, e.y1), B = P(e.x2, e.y2), fixed = atEnd ? A : B, d = norm(sub(atEnd ? B : A, fixed)), q = add(fixed, mul(d, total));
+      return atEnd ? { ...e, x2: q.x, y2: q.y } : { ...e, x1: q.x, y1: q.y };
+    }
+    if (e.type === 'arc') {
+      const sw = total / e.r;
+      if (sw >= TAU - 1e-9) return null;
+      return atEnd ? { ...e, a2: normAng(e.a1 + sw) } : { ...e, a1: normAng(e.a2 - sw) };
+    }
+    // open polyline: shorter = cut off at that length; longer = stretch the end segment
+    const pr = prims(e), n = e.pts.length;
+    if (total < L - 1e-12) {
+      const at = (sLen) => { let acc = 0; for (let i = 0; i < pr.length; i++) { const l = primLength(pr[i]); if (sLen <= acc + l || i === pr.length - 1) return i + Math.min(1, Math.max(0, (sLen - acc) / l)); acc += l; } return pr.length; };
+      return { ...e, pts: atEnd ? plineSlice(e, 0, at(total)) : plineSlice(e, at(L - total), pr.length) };
+    }
+    const extra = total - L, pts = e.pts.map((p) => ({ ...p }));
+    const i = atEnd ? n - 2 : 0, p = pts[i], q = pts[i + 1], b = p.b || 0;
+    if (!b) {
+      const d = norm(sub(q, p));
+      if (atEnd) Object.assign(pts[n - 1], add(q, mul(d, extra))); else Object.assign(pts[0], sub(p, mul(d, extra)));
+      return { ...e, pts };
+    }
+    const ba = bulgeArc(p, q, b), s = 4 * Math.atan(Math.abs(b)) + extra / ba.r, dir = b > 0 ? 1 : -1;
+    if (s >= TAU - 1e-9) return null;
+    const rot = (v, a) => add(ba.c, polar(P(0, 0), ang(ba.c, v) + a, ba.r));
+    if (atEnd) Object.assign(pts[n - 1], rot(q, dir * extra / ba.r)); else Object.assign(pts[0], rot(p, -dir * extra / ba.r));
+    pts[i].b = dir * Math.tan(s / 4);
+    return { ...e, pts };
+  }
+  /** LENGTHEN Dynamic: the total length that puts the changing end at the cursor (projected onto the line,
+   *  or round the arc). */
+  function lengthenDynamicTotal(e, pick, cur) {
+    const atEnd = lengthenEnd(e, pick), L = entLength(e);
+    if (e.type === 'line') { const A = P(e.x1, e.y1), B = P(e.x2, e.y2), f = atEnd ? A : B; return dot(sub(cur, f), norm(sub(atEnd ? B : A, f))); }
+    if (e.type === 'arc') { const a = ang(P(e.cx, e.cy), cur); return e.r * (atEnd ? normAng(a - e.a1) : normAng(e.a2 - a)); }
+    const n = e.pts.length, i = atEnd ? n - 2 : 0, p = e.pts[i], q = e.pts[i + 1], b = p.b || 0;
+    const segLen = b ? primLength(prims({ type: 'pline', pts: [p, q], closed: false })[0]) : dist(p, q);
+    if (!b) return L - segLen + (atEnd ? dot(sub(cur, p), norm(sub(q, p))) : dot(sub(cur, q), norm(sub(p, q))));
+    const ba = bulgeArc(p, q, b), a = ang(ba.c, cur), ccw = b > 0, fixed = atEnd ? ang(ba.c, p) : ang(ba.c, q);
+    const sw = atEnd === ccw ? normAng(a - fixed) : normAng(fixed - a);
+    return L - segLen + ba.r * sw;
+  }
+
   /** Extend the end of a line/arc/open pline nearest `pick` to the closest boundary. */
   function extendEntity(e, pick, bounds) {
     if (e.type === 'line') {
@@ -1206,7 +1269,7 @@
     TEXT, textBox, textCorners, textInkCorners, textCenter, fmtNum, fmtDim, dimFrame, dimGeometry, imageCorners, imageMatrix, breaklinePts, PATTERNS, hatchLines, hatchSegments, isAttDef,
     prims, primsOf, flatPrims, transformPrim, arcPoints, primBox, bbox, closestOnSeg, closestOnPrim, distToPrim, pointInPoly,
     segSeg, lineCircle, circleCircle, primInter, primParam, primAt, primLength, plinePrims, polyPrims,
-    plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, breakEllipse, splitAt, ellipseParamOf, ellipseUnit, distToEllipse, filletLines, chamferLines,
+    plineLength, polyArea, plineArea, transformEntity, offsetEntity, trimEntity, extendEntity, entLength, lengthenTo, lengthenDynamicTotal, breakEllipse, splitAt, ellipseParamOf, ellipseUnit, distToEllipse, filletLines, chamferLines,
     plineSlice, plineParamOf, parsePointInput,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

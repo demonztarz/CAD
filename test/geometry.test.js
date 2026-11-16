@@ -346,6 +346,31 @@ test('split at one point (BREAK with the same point twice)', () => {
   assert.strictEqual(G.splitAt({ type: 'circle', cx: 0, cy: 0, r: 5 }, { x: 5, y: 0 }), null);
 });
 
+test('LENGTHEN: lines, arcs and open polylines, at the end nearest the pick', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const l = { type: 'line', x1: 0, y1: 0, x2: 30, y2: 40 };                       // 50 long at an odd angle
+  const a = G.lengthenTo(l, { x: 29, y: 39 }, 65);
+  assert.ok(near(a.x2, 39) && near(a.y2, 52) && a.x1 === 0, 'end moved along the line');
+  const b = G.lengthenTo(l, { x: 1, y: 1 }, 25);
+  assert.ok(near(b.x1, 15) && near(b.y1, 20) && b.x2 === 30, 'start moved; shortened');
+  assert.strictEqual(G.lengthenTo(l, { x: 0, y: 0 }, 0), null);
+  const arc = { type: 'arc', cx: 0, cy: 0, r: 10, a1: 0, a2: Math.PI / 2 };
+  const c = G.lengthenTo(arc, G.polar({ x: 0, y: 0 }, Math.PI / 2, 10), 10 * Math.PI);
+  assert.ok(near(c.a2, Math.PI) && c.a1 === 0, 'arc end follows the curve');
+  assert.strictEqual(G.lengthenTo(arc, { x: 0, y: 10 }, 20 * Math.PI), null, 'not a full circle');
+  const pl = { type: 'pline', closed: false, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }] };
+  const d = G.lengthenTo(pl, { x: 10, y: 9 }, 25);
+  assert.ok(near(d.pts[2].y, 15) && near(G.entLength(d), 25));
+  const e = G.lengthenTo(pl, { x: 0, y: 0 }, 5);
+  assert.ok(near(G.entLength(e), 5) && near(e.pts[0].x, 10) && near(e.pts[0].y, 5), 'shortened from the start, across segments');
+  const bent = { type: 'pline', closed: false, pts: [{ x: 0, y: 0 }, { x: 10, y: 0, b: Math.tan(Math.PI / 8) }, { x: 20, y: 10 }] };
+  const f = G.lengthenTo(bent, { x: 20, y: 10 }, G.entLength(bent) + 5);
+  assert.ok(near(G.entLength(f), G.entLength(bent) + 5), 'arc end segment lengthened along its curve');
+  // Dynamic: the cursor's projection sets the length
+  assert.ok(near(G.lengthenDynamicTotal(l, { x: 29, y: 39 }, { x: 60, y: 80 }), 100));
+  assert.ok(near(G.lengthenDynamicTotal(arc, { x: 0, y: 10 }, { x: -5, y: 0 }), 10 * Math.PI));
+});
+
 test('break and extend ellipses', () => {
   const e = { type: 'ellipse', cx: 0, cy: 0, mx: 20, my: 0, ratio: 0.5 }, pt = (t) => G.ellipsePoint(e, t);
   const close = (a, b) => assert.ok(Math.abs(G.normAng(a - b + 1e-9) - 1e-9) < 1e-7, a + ' vs ' + b);

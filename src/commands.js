@@ -642,6 +642,41 @@
     }
   }, { aliases: ['EX'], desc: 'Extends objects to meet the edges of other objects', group: 'Modify', pickfirst: false });
 
+  R('LENGTHEN', async () => {
+    const o = S.lenOpt || (S.lenOpt = { mode: 'Total', DElta: 0, Percent: 100, Total: 1 });
+    const can = (e) => e.type === 'line' || e.type === 'arc' || (e.type === 'pline' && !e.closed);
+    const ask = async (mode) => {
+      o.mode = mode;
+      if (mode === 'DYnamic') return true;
+      const prompt = { DElta: 'Enter delta length (negative shortens)', Percent: 'Enter percentage length', Total: 'Specify total length' }[mode];
+      const v = await S.getNumber(prompt, { def: S.fmt(o[mode]) });
+      if (!isFinite(v) || (mode !== 'DElta' && !(v > 0))) { S.msg('Value must be positive and nonzero.', 'err'); return false; }
+      o[mode] = v; return true;
+    };
+    // measure objects until an option is chosen (Enter = the last option)
+    for (;;) {
+      const r = await S.getEntity('Select an object to measure or', { filter: can, allowNone: true, keywords: ['DElta', 'Percent', 'Total', 'DYnamic'], def: o.mode });
+      if (r == null) { if (!(await ask(o.mode))) return; break; }
+      if (typeof r === 'string') { if (!(await ask(r))) return; break; }
+      const e = r.e;
+      S.msg(`Current length: ${S.fmt(G.entLength(e))}${e.type === 'arc' ? `, included angle: ${S.fmt(G.deg(G.sweep(e.a1, e.a2)), 2)}°` : ''}`);
+    }
+    const target = (e) => { const L = G.entLength(e); return o.mode === 'DElta' ? L + o.DElta : o.mode === 'Percent' ? L * o.Percent / 100 : o.Total; };
+    for (;;) {
+      const r = await S.getEntity('Select an object to change or', { filter: can, allowNone: true, keywords: ['Undo'] });
+      if (r == null) return;
+      if (r === 'Undo') { S.undo(); continue; }
+      let n;
+      if (o.mode === 'DYnamic') {
+        const q = await S.getPoint('Specify new end point', { ghost: (p) => { const k = G.lengthenTo(r.e, r.p, G.lengthenDynamicTotal(r.e, r.p, p)); return k ? [k] : []; } });
+        n = G.lengthenTo(r.e, r.p, G.lengthenDynamicTotal(r.e, r.p, q));
+      } else n = G.lengthenTo(r.e, r.p, target(r.e));
+      if (!n) { S.msg(o.mode === 'DElta' && o.DElta < 0 ? 'The object is not long enough to shorten by that much.' : 'Cannot change the length to that (it would be zero or a full circle).', 'err'); continue; }
+      S.replace(new Map([[r.e, [n]]]));
+      S.endOp();
+    }
+  }, { aliases: ['LEN'], desc: 'Changes the length of lines, arcs and open polylines', group: 'Modify', pickfirst: false });
+
   R('FILLET', async () => {
     S.filletR = S.filletR ?? 0;
     for (;;) {
