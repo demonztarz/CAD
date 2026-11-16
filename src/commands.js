@@ -825,8 +825,8 @@
     const r = await S.getEntity('Select object', { filter: (e) => ['line', 'arc', 'circle', 'pline', 'ellipse'].includes(e.type) });
     let p1 = r.p;
     S.lastPoint = p1; // so "@" for the second point means the same point
-    let p2 = await S.getPoint('Specify second break point or', { keywords: ['First point'] });
-    if (p2 === 'First point') { p1 = await S.getPoint('Specify first break point'); p2 = await S.getPoint('Specify second break point'); }
+    let p2 = await S.getPoint('Specify second break point (@ = same point, splits without a gap) or', { keywords: ['First point'] });
+    if (p2 === 'First point') { p1 = await S.getPoint('Specify first break point'); p2 = await S.getPoint('Specify second break point (@ = same point, splits without a gap)'); }
     const e = r.e;
     // the same point twice: split there with no gap, as AutoCAD does
     if (G.dist(p1, p2) <= 1e-9 * (1 + Math.abs(p1.x) + Math.abs(p1.y))) {
